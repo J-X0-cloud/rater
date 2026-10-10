@@ -1,0 +1,21 @@
+{
+  "effectiveDate": "2026-03-01",
+  "risk": {
+    "territory": "03",
+    "construction": "frame",
+    "protection_class": 6,
+    "year_built": 1994,
+    "roof_age": 12,
+    "prior_claims": 1,
+    "has_alarm": true,
+    "insured_birth_date": "1968-07-14",
+    "coast_distance_miles": 8
+  },
+  "coverages": [
+    { "code": "DWELLING", "limit": 350000, "deductible": 1000 },
+    { "code": "OTHER_STRUCTURES", "limit": 35000 },
+    { "code": "LIABILITY", "limit": 300000 },
+    { "code": "MED_PAY", "limit": 2000 },
+    { "code": "WIND", "deductible": 2 }
+  ]
+}

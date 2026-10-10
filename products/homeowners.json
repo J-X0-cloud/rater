@@ -1,0 +1,254 @@
+{
+  "code": "HO3",
+  "name": "Homeowners Special Form",
+  "currency": "USD",
+  "description": "Owner-occupied dwelling cover with optional other structures, liability, medical payments and wind.",
+  "available": "2025-01-01",
+  "quoteValidityDays": 30,
+  "attributes": [
+    { "name": "territory", "type": "text", "required": true, "allowed": ["01", "02", "03", "04", "05"],
+      "description": "Rating territory from the filed territory map" },
+    { "name": "construction", "type": "text", "required": true, "allowed": ["frame", "masonry", "superior"] },
+    { "name": "protection_class", "type": "number", "required": true, "integer": true, "min": 1, "max": 10,
+      "description": "Public protection class of the fire district" },
+    { "name": "year_built", "type": "number", "required": true, "integer": true, "min": 1800, "max": 2100 },
+    { "name": "roof_age", "type": "number", "required": true, "integer": true, "min": 0, "max": 100 },
+    { "name": "prior_claims", "type": "number", "integer": true, "min": 0, "max": 20, "default": 0,
+      "description": "Property claims in the last five years" },
+    { "name": "has_alarm", "type": "bool", "default": false, "description": "Central-station burglar and fire alarm" },
+    { "name": "sprinklered", "type": "bool", "default": false },
+    { "name": "occupancy", "type": "text", "default": "owner", "allowed": ["owner", "tenant", "seasonal"] },
+    { "name": "insured_birth_date", "type": "date", "required": true },
+    { "name": "coast_distance_miles", "type": "number", "min": 0, "default": 100 }
+  ],
+  "coverages": [
+    {
+      "code": "DWELLING",
+      "name": "Coverage A - Dwelling",
+      "required": true,
+      "limit": { "min": 100000, "max": 2000000, "increment": 1000 },
+      "deductibles": [500, 1000, 2500, 5000],
+      "defaultDeductible": 1000,
+      "minimumPremium": 150,
+      "algorithm": [
+        "// Base premium for a 200,000 dwelling, adjusted by multiplicative factors.",
+        "base := #base_rate[risk.territory, risk.construction]",
+        "amount := #amount_of_insurance[coverage.limit]",
+        "protection := #protection_class[risk.protection_class]",
+        "home_age := #home_age[year(policy.effective_date) - risk.year_built]",
+        "deductible := #deductible_credit[coverage.deductible]",
+        "claims := #claims_surcharge[min(risk.prior_claims, 3)]",
+        "roof := if risk.roof_age >= 20 then 1.15 elif risk.roof_age >= 15 then 1.05 else 1",
+        "protective := 1 - min(15%, (if risk.has_alarm then 5% else 0) + (if risk.sprinklered then 10% else 0))",
+        "mature := if years_between(risk.insured_birth_date, policy.effective_date) >= 55 then 0.95 else 1",
+        "premium := round(base * amount * protection * home_age * deductible * claims * roof * protective * mature, 2)"
+      ]
+    },
+    {
+      "code": "OTHER_STRUCTURES",
+      "name": "Coverage B - Other Structures",
+      "limit": { "min": 5000, "max": 250000, "increment": 1000, "default": 20000 },
+      "requires": ["DWELLING"],
+      "minimumPremium": 10,
+      "algorithm": [
+        "per_thousand := #other_structures_rate[risk.construction]",
+        "premium := round(coverage.limit / 1000 * per_thousand, 2)"
+      ]
+    },
+    {
+      "code": "LIABILITY",
+      "name": "Coverage E - Personal Liability",
+      "limit": { "min": 100000, "max": 500000, "increment": 100000, "default": 300000 },
+      "algorithm": [
+        "base := #liability_base[coverage.limit]",
+        "occupancy := if risk.occupancy == \"tenant\" then 1.25 elif risk.occupancy == \"seasonal\" then 1.10 else 1",
+        "premium := round(base * occupancy * #claims_surcharge[min(risk.prior_claims, 3)], 2)"
+      ]
+    },
+    {
+      "code": "MED_PAY",
+      "name": "Coverage F - Medical Payments",
+      "limit": { "min": 1000, "max": 5000, "increment": 1000, "default": 1000 },
+      "requires": ["LIABILITY"],
+      "algorithm": "premium := #medical_payments[coverage.limit]"
+    },
+    {
+      "code": "WIND",
+      "name": "Windstorm and Hail",
+      "limit": { "min": 0, "max": 0, "default": 0 },
+      "deductibles": [1, 2, 5],
+      "defaultDeductible": 2,
+      "minimumPremium": 25,
+      "algorithm": [
+        "// Percentage deductible: 1, 2 or 5 percent of the dwelling limit.",
+        "load := #wind_load[risk.coast_distance_miles]",
+        "credit := if coverage.deductible == 5 then 0.80 elif coverage.deductible == 2 then 0.90 else 1",
+        "premium := round(premium.DWELLING * load * credit, 2)"
+      ]
+    }
+  ],
+  "tables": [
+    {
+      "name": "base_rate",
+      "description": "Base premium by territory and construction",
+      "dimensions": [ { "name": "territory" }, { "name": "construction" } ],
+      "versions": [
+        {
+          "effective": "2025-01-01",
+          "label": "2025 initial filing",
+          "rows": [
+            ["01", "frame", 812], ["01", "masonry", 744], ["01", "superior", 690],
+            ["02", "frame", 905], ["02", "masonry", 829], ["02", "superior", 768],
+            ["03", "frame", 1012], ["03", "masonry", 927], ["03", "superior", 859],
+            ["04", "frame", 1187], ["04", "masonry", 1088], ["04", "superior", 1008],
+            ["05", "frame", 1420], ["05", "masonry", 1301], ["05", "superior", 1205]
+          ]
+        },
+        {
+          "effective": "2026-01-01",
+          "label": "2026 revision, +4.5% across the board",
+          "derive": { "factor": 1.045, "places": 0 }
+        }
+      ]
+    },
+    {
+      "name": "amount_of_insurance",
+      "description": "Relativity to a 200,000 dwelling, interpolated between filed points",
+      "dimensions": [ { "name": "limit", "kind": "interpolate", "extrapolation": "reject" } ],
+      "versions": [
+        {
+          "effective": "2025-01-01",
+          "rows": [
+            [100000, 0.62], [150000, 0.83], [200000, 1.00], [300000, 1.33],
+            [500000, 1.95], [750000, 2.66], [1000000, 3.40], [2000000, 6.10]
+          ]
+        }
+      ]
+    },
+    {
+      "name": "protection_class",
+      "dimensions": [ { "name": "class", "type": "number" } ],
+      "versions": [
+        {
+          "effective": "2025-01-01",
+          "rows": [
+            [1, 0.85], [2, 0.88], [3, 0.91], [4, 0.95], [5, 1.00],
+            [6, 1.06], [7, 1.13], [8, 1.25], [9, 1.55], [10, 1.85]
+          ]
+        },
+        {
+          "effective": "2026-01-01",
+          "label": "2026 protection class review",
+          "rows": [
+            [1, 0.84], [2, 0.87], [3, 0.90], [4, 0.95], [5, 1.00],
+            [6, 1.07], [7, 1.15], [8, 1.28], [9, 1.62], [10, 1.95]
+          ]
+        }
+      ]
+    },
+    {
+      "name": "home_age",
+      "description": "Age of home in years at policy inception",
+      "dimensions": [ { "name": "age", "kind": "band" } ],
+      "versions": [
+        {
+          "effective": "2025-01-01",
+          "rows": [ ["..5", 0.90], ["5..15", 0.95], ["15..30", 1.00], ["30..50", 1.10], ["50..", 1.22] ]
+        }
+      ]
+    },
+    {
+      "name": "deductible_credit",
+      "dimensions": [ { "name": "deductible", "type": "number" } ],
+      "versions": [
+        { "effective": "2025-01-01", "rows": [ [500, 1.00], [1000, 0.92], [2500, 0.83], [5000, 0.75] ] }
+      ]
+    },
+    {
+      "name": "claims_surcharge",
+      "dimensions": [ { "name": "claims", "type": "number" } ],
+      "versions": [
+        { "effective": "2025-01-01", "rows": [ [0, 1.00], [1, 1.15], [2, 1.35], [3, 1.60] ] }
+      ]
+    },
+    {
+      "name": "other_structures_rate",
+      "description": "Premium per 1,000 of other structures limit",
+      "dimensions": [ { "name": "construction" } ],
+      "versions": [
+        { "effective": "2025-01-01", "rows": [ ["frame", 4.10], ["masonry", 3.60], ["superior", 3.20] ] }
+      ]
+    },
+    {
+      "name": "liability_base",
+      "dimensions": [ { "name": "limit", "type": "number" } ],
+      "versions": [
+        {
+          "effective": "2025-01-01",
+          "rows": [ [100000, 22], [200000, 30], [300000, 36], [400000, 41], [500000, 45] ]
+        }
+      ]
+    },
+    {
+      "name": "medical_payments",
+      "dimensions": [ { "name": "limit", "type": "number" } ],
+      "versions": [
+        { "effective": "2025-01-01", "rows": [ [1000, 8], [2000, 11], [3000, 14], [4000, 16], [5000, 18] ] }
+      ]
+    },
+    {
+      "name": "wind_load",
+      "description": "Wind load as a share of dwelling premium, by distance to coast in miles",
+      "dimensions": [ { "name": "distance", "kind": "band" } ],
+      "versions": [
+        { "effective": "2025-01-01", "rows": [ ["..1", 0.35], ["1..5", 0.22], ["5..25", 0.10], ["25..", 0.03] ] }
+      ]
+    }
+  ],
+  "rules": [
+    {
+      "id": "UW-CLAIMS",
+      "description": "Loss history outside appetite",
+      "when": "risk.prior_claims >= 4",
+      "action": "decline",
+      "message": "four or more property claims in five years"
+    },
+    {
+      "id": "UW-SEASONAL-COAST",
+      "when": "risk.occupancy == \"seasonal\" and risk.coast_distance_miles < 1",
+      "action": "decline",
+      "message": "seasonal dwellings within one mile of the coast are not written"
+    },
+    {
+      "id": "UW-ROOF",
+      "when": "risk.roof_age > 25",
+      "action": "refer",
+      "message": "roof older than 25 years needs an inspection report"
+    },
+    {
+      "id": "UW-UNPROTECTED-FRAME",
+      "when": "risk.construction == \"frame\" and risk.protection_class >= 9",
+      "action": "refer",
+      "message": "frame dwelling in protection class 9 or 10"
+    },
+    {
+      "id": "UW-AUTHORITY",
+      "when": "premium.total > 7500",
+      "action": "refer",
+      "message": "premium exceeds desk authority"
+    }
+  ],
+  "fees": [ { "code": "POLICY_FEE", "name": "Policy fee", "amount": 25 } ],
+  "taxes": [
+    { "code": "PREMIUM_TAX", "name": "Premium tax", "rate": 0.023 },
+    { "code": "FIRE_MARSHAL", "name": "Fire marshal tax", "rate": 0.005, "includesFees": true }
+  ],
+  "premium": {
+    "rounding": "half_up",
+    "places": 0,
+    "policyMinimum": 300,
+    "annualBasisDays": 365,
+    "minimumTermDays": 30,
+    "maximumTermDays": 366
+  }
+}
