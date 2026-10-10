@@ -22,6 +22,9 @@
     <Compile Include="Product.fs" />
     <Compile Include="Underwriting.fs" />
     <Compile Include="Rating.fs" />
+    <Compile Include="Quote.fs" />
+    <Compile Include="QuoteStore.fs" />
+    <Compile Include="Json.fs" />
   </ItemGroup>
 
 </Project>
