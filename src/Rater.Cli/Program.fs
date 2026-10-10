@@ -71,6 +71,9 @@ let private shiftTo (date: DateOnly) (r: RatingRequest) =
         EffectiveDate = date
         ExpirationDate = r.ExpirationDate |> Option.map (fun e -> e.AddDays shift) }
 
+let private count (n: int) (noun: string) =
+    if n = 1 then $"1 {noun}" else $"{n} {noun}s"
+
 let validate (paths: string list) =
     if paths.IsEmpty then
         fail "validate needs at least one product file"
@@ -82,8 +85,13 @@ let validate (paths: string list) =
         | Ok plan ->
             let p = plan.Product
 
-            printfn
-                $"{path}: ok - {p.Code} '{p.Name}', {p.Coverages.Length} coverages, {p.Tables.Length} tables, {p.Rules.Length} rules"
+            let summary =
+                [ count p.Coverages.Length "coverage"
+                  count p.Tables.Length "table"
+                  count p.Rules.Length "rule" ]
+                |> String.joinWith ", "
+
+            printfn $"{path}: ok - {p.Code} '{p.Name}', {summary}"
 
             for w in plan.Warnings do
                 printfn $"  {w}"
