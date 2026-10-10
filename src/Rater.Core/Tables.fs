@@ -68,14 +68,29 @@ type Dimension =
         | Banded
         | Interpolated _ -> TNumber
 
+/// Per-dimension search structures, built once so that lookups neither sort nor allocate keys.
+type internal DimensionIndex =
+    | ExactIndex of keys: Collections.Generic.Dictionary<Value, int> * wildcard: int
+    | BandIndex of sorted: (int * Band) array
+    | PointIndex of points: decimal array
+
 /// A dense N-dimensional rating table stored row-major. Every combination of keys has a cell;
 /// that invariant is established by `Table.build` and relied upon by `Table.lookup`.
+[<CustomEquality; NoComparison>]
 type Table =
     private
         { name: string
           dimensions: Dimension array
           cells: decimal array
-          strides: int array }
+          strides: int array
+          indexes: DimensionIndex array }
+
+    override t.Equals(o) =
+        match o with
+        | :? Table as other -> t.name = other.name && t.dimensions = other.dimensions && t.cells = other.cells
+        | _ -> false
+
+    override t.GetHashCode() = hash (t.name, t.cells.Length)
 
     member t.Name = t.name
     member t.Dimensions = List.ofArray t.dimensions
@@ -140,14 +155,30 @@ type LookupError =
 
 /// Explains how a lookup arrived at its value; rendered into the rating worksheet.
 type LookupTrace =
-    {
-        Table: string
-        Arguments: (string * Value) list
-        Matches: DimensionMatch list
-        /// One human-readable line per dimension, e.g. "limit: between 250000 and 300000 (weight 0.5)".
-        Explanation: string list
-        Result: decimal
-    }
+    { Table: string
+      Arguments: (string * Value) list
+      Matches: DimensionMatch list
+      Dimensions: Dimension array
+      Result: decimal }
+
+    /// One human-readable line per dimension, e.g. "limit: between 250000 and 300000 (weight 0.5)".
+    /// Built on demand so that rating does not pay for text nobody reads.
+    member t.Explanation =
+        t.Matches
+        |> List.mapi (fun i m ->
+            let d = t.Dimensions[i]
+
+            match m with
+            | Hit(_, k) -> $"{d.Name}: {k}"
+            | Between(lo, hi, w)
+            | Extrapolated(lo, hi, w) ->
+                let verb =
+                    match m with
+                    | Extrapolated _ -> "extrapolated"
+                    | _ -> "between"
+
+                let weight = Decimal.toInvariantString (Decimal.round HalfUp 6 w)
+                $"{d.Name}: {verb} {d.Keys[lo]} and {d.Keys[hi]} (weight {weight})")
 
 [<RequireQualifiedAccess>]
 module Table =
@@ -244,6 +275,35 @@ module Table =
         |> Array.mapi (fun i d -> keyLabel d d.Keys[(flat / strides[i]) % d.Keys.Length])
         |> List.ofArray
 
+    let private indexOf (d: Dimension) =
+        match d.Kind with
+        | Exact _ ->
+            let map = Collections.Generic.Dictionary<Value, int>()
+            let mutable wildcard = -1
+
+            d.Keys
+            |> Array.iteri (fun i k ->
+                match k with
+                | Key v -> map[v] <- i
+                | Wildcard -> wildcard <- i
+                | _ -> ())
+
+            ExactIndex(map, wildcard)
+        | Banded ->
+            d.Keys
+            |> Array.mapi (fun i k ->
+                match k with
+                | BandKey b -> i, b
+                | _ -> invalidOp "banded dimension holds a non-band key")
+            |> Array.sortBy (fun (_, b) -> b.Lower |> Option.defaultValue Decimal.MinValue)
+            |> BandIndex
+        | Interpolated _ ->
+            d.Keys
+            |> Array.map (function
+                | Point p -> p
+                | _ -> invalidOp "interpolated dimension holds a non-point key")
+            |> PointIndex
+
     /// Builds a dense table from sparse rows, reporting every structural problem at once.
     let build
         (name: string)
@@ -331,7 +391,8 @@ module Table =
                         { name = name
                           dimensions = dims
                           cells = cells
-                          strides = strides }
+                          strides = strides
+                          indexes = dims |> Array.map indexOf }
 
     /// Every cell as (keys, value), in row-major order.
     let rows (t: Table) : TableRow list =
@@ -343,15 +404,7 @@ module Table =
                 Value = t.cells[flat] } ]
 
     /// Binary search for the band containing x. Bands are validated as non-overlapping.
-    let private findBand (keys: DimensionKey array) (x: decimal) =
-        let sorted =
-            keys
-            |> Array.mapi (fun i k ->
-                match k with
-                | BandKey b -> i, b
-                | _ -> invalidOp "banded dimension holds a non-band key")
-            |> Array.sortBy (fun (_, b) -> b.Lower |> Option.defaultValue Decimal.MinValue)
-
+    let private findBand (sorted: (int * Band) array) (x: decimal) =
         let rec search lo hi =
             if lo > hi then
                 None
@@ -371,28 +424,21 @@ module Table =
     let private matchDimension
         (table: string)
         (d: Dimension)
+        (index: DimensionIndex)
         (arg: Value)
         : Result<DimensionMatch, LookupError> =
-        match d.Kind, arg with
-        | Exact t, v when v.Type = t ->
-            match d.Keys |> Array.tryFindIndex (fun k -> k = Key v) with
-            | Some i -> Ok(Hit(i, d.Keys[i]))
-            | None ->
-                match d.Keys |> Array.tryFindIndex (fun k -> k = Wildcard) with
-                | Some i -> Ok(Hit(i, Wildcard))
-                | None -> Error(NoMatchingKey(table, d.Name, v))
-        | Exact t, v -> Error(ArgumentType(table, d.Name, t, v))
-        | Banded, VNumber x ->
-            match findBand d.Keys x with
+        match d.Kind, index, arg with
+        | Exact t, ExactIndex(keys, wildcard), v when v.Type = t ->
+            match keys.TryGetValue v with
+            | true, i -> Ok(Hit(i, d.Keys[i]))
+            | _ when wildcard >= 0 -> Ok(Hit(wildcard, Wildcard))
+            | _ -> Error(NoMatchingKey(table, d.Name, v))
+        | Exact t, _, v -> Error(ArgumentType(table, d.Name, t, v))
+        | Banded, BandIndex sorted, VNumber x ->
+            match findBand sorted x with
             | Some(i, b) -> Ok(Hit(i, BandKey b))
             | None -> Error(NoMatchingKey(table, d.Name, arg))
-        | Interpolated mode, VNumber x ->
-            let points =
-                d.Keys
-                |> Array.map (function
-                    | Point p -> p
-                    | _ -> invalidOp "interpolated dimension holds a non-point key")
-
+        | Interpolated mode, PointIndex points, VNumber x ->
             let last = points.Length - 1
 
             if points.Length = 1 then
@@ -421,21 +467,8 @@ module Table =
                         let lo, hi = insertAt - 1, insertAt
                         let w = (x - points[lo]) / (points[hi] - points[lo])
                         Ok(Between(lo, hi, w))
-        | (Banded | Interpolated _), v -> Error(ArgumentType(table, d.Name, TNumber, v))
-
-    let describeMatch (t: Table) (dimIndex: int) (m: DimensionMatch) =
-        let d = t.dimensions[dimIndex]
-
-        match m with
-        | Hit(_, k) -> $"{d.Name}: {k}"
-        | Between(lo, hi, w)
-        | Extrapolated(lo, hi, w) ->
-            let verb =
-                match m with
-                | Extrapolated _ -> "extrapolated"
-                | _ -> "between"
-
-            $"{d.Name}: {verb} {d.Keys[lo]} and {d.Keys[hi]} (weight {Decimal.toInvariantString (Decimal.round HalfUp 6 w)})"
+        | (Banded | Interpolated _), _, VNumber _ -> invalidOp $"table '{table}' has an inconsistent index"
+        | (Banded | Interpolated _), _, v -> Error(ArgumentType(table, d.Name, TNumber, v))
 
     /// Multilinear lookup: exact and banded dimensions pin a single index, interpolated
     /// dimensions contribute two corners each, and the result is the weighted sum over all corners.
@@ -444,8 +477,9 @@ module Table =
             Error(ArgumentCount(t.name, t.dimensions.Length, args.Length))
         else
             let matches =
-                List.zip (List.ofArray t.dimensions) args
-                |> Result.traverse (fun (d, a) -> matchDimension t.name d a)
+                args
+                |> List.mapi (fun i a -> i, a)
+                |> Result.traverse (fun (i, a) -> matchDimension t.name t.dimensions[i] t.indexes[i] a)
 
             matches
             |> Result.map (fun ms ->
@@ -477,7 +511,7 @@ module Table =
                 { Table = t.name
                   Arguments = List.zip (t.dimensions |> Array.map (fun d -> d.Name) |> List.ofArray) args
                   Matches = ms
-                  Explanation = ms |> List.mapi (describeMatch t)
+                  Dimensions = t.dimensions
                   Result = value })
 
     /// Two tables can be swapped for one another without re-checking algorithms when their

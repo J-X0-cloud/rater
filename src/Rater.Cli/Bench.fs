@@ -14,13 +14,16 @@ type Measurement =
     member m.OpsPerSecond = float m.Iterations / m.Elapsed.TotalSeconds
     member m.BytesPerOp = float m.AllocatedBytes / float m.Iterations
 
-/// Runs `f` for a warm-up period, then times `iterations` calls. Good enough to compare
-/// changes on one machine; not a substitute for a statistical harness.
+/// Runs `f` for a warm-up period (at least a second, so tiered JIT has promoted the hot paths),
+/// then times `iterations` calls. Good enough to compare changes on one machine; not a
+/// substitute for a statistical harness.
 let measure (name: string) (iterations: int) (f: unit -> unit) =
-    let warmup = max 1 (iterations / 10)
+    let warmup = Stopwatch.StartNew()
+    let mutable runs = 0
 
-    for _ in 1..warmup do
+    while warmup.ElapsedMilliseconds < 1000L || runs < max 1 (iterations / 10) do
         f ()
+        runs <- runs + 1
 
     GC.Collect()
     GC.WaitForPendingFinalizers()
