@@ -150,6 +150,10 @@ module Value =
 [<RequireQualifiedAccess>]
 module Dates =
 
+    /// ISO 8601 calendar date, the only date format the engine reads or writes.
+    let iso (d: DateOnly) =
+        d.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)
+
     /// Whole years between two dates, counting a year only once its anniversary has passed.
     /// This is how "age of home" and "driver age" are measured in rate manuals.
     let rec yearsBetween (fromDate: DateOnly) (toDate: DateOnly) =

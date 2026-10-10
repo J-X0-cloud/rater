@@ -2,6 +2,7 @@ namespace Rater.Dsl
 
 open Rater
 
+[<RequireQualifiedAccess>]
 type Severity =
     | Error
     | Warning
@@ -14,8 +15,8 @@ type Diagnostic =
     override d.ToString() =
         let tag =
             match d.Severity with
-            | Error -> "error"
-            | Warning -> "warning"
+            | Severity.Error -> "error"
+            | Severity.Warning -> "warning"
 
         $"{d.Pos}: {tag}: {d.Message}"
 
@@ -51,7 +52,7 @@ module TypeCheck =
 
         member _.Fail(pos, msg) =
             diagnostics.Add
-                { Severity = Error
+                { Severity = Severity.Error
                   Message = msg
                   Pos = pos }
 
@@ -59,7 +60,7 @@ module TypeCheck =
 
         member _.Warn(pos, msg) =
             diagnostics.Add
-                { Severity = Warning
+                { Severity = Severity.Warning
                   Message = msg
                   Pos = pos }
 
@@ -140,7 +141,7 @@ module TypeCheck =
                     if List.forall Option.isSome argTypes then
                         match Builtins.resolve b (List.choose id argTypes) with
                         | Ok t -> Some t
-                        | Result.Error msg -> this.Fail(e.Pos, msg)
+                        | Error msg -> this.Fail(e.Pos, msg)
                     else
                         None
             | Unary(Negate, x) ->
@@ -244,11 +245,11 @@ module TypeCheck =
     let expression (env: TypeEnv) (e: Expr) : Result<DataType * Diagnostic list, Diagnostic list> =
         let diags = ResizeArray()
         let t = Checker(env, diags).Check(e, Map.empty)
-        let errors, warnings = diags |> List.ofSeq |> List.partition (fun d -> d.Severity = Error)
+        let errors, warnings = diags |> List.ofSeq |> List.partition (fun d -> d.Severity = Severity.Error)
 
         match t with
         | Some t when errors.IsEmpty -> Ok(t, warnings)
-        | _ -> Result.Error(errors @ warnings |> List.filter (fun d -> d.Severity = Error))
+        | _ -> Error errors
 
     /// Checks a whole algorithm: every step in order, then the rules about steps themselves.
     let algorithm (env: TypeEnv) (a: Algorithm) : Result<CheckedAlgorithm, Diagnostic list> =
@@ -306,11 +307,11 @@ module TypeCheck =
         |> List.iter (fun s -> checker.Warn(s.Pos, $"step '{s.Name}' is never used"))
 
         let all = List.ofSeq diags
-        let errors = all |> List.filter (fun d -> d.Severity = Error)
+        let errors = all |> List.filter (fun d -> d.Severity = Severity.Error)
 
         if errors.IsEmpty then
             Ok
                 { StepTypes = steps
-                  Warnings = all |> List.filter (fun d -> d.Severity = Warning) }
+                  Warnings = all |> List.filter (fun d -> d.Severity = Severity.Warning) }
         else
-            Result.Error errors
+            Error errors
