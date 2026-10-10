@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Rater</RootNamespace>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);FS3390</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="Prelude.fs" />
+    <Compile Include="Money.fs" />
+    <Compile Include="Value.fs" />
+    <Compile Include="Tables.fs" />
+    <Compile Include="Ast.fs" />
+    <Compile Include="Lexer.fs" />
+    <Compile Include="Parser.fs" />
+    <Compile Include="Printer.fs" />
+    <Compile Include="Builtins.fs" />
+    <Compile Include="TypeCheck.fs" />
+  </ItemGroup>
+
+</Project>
