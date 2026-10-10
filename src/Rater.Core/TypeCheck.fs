@@ -260,7 +260,7 @@ module TypeCheck =
             a.Steps
             |> List.fold
                 (fun (types: Map<string, DataType>) step ->
-                    if reservedNames.Contains step.Name then
+                    if reservedNames.Contains step.Name && step.Name <> "premium" then
                         checker.Fail(step.Pos, $"'{step.Name}' is reserved and cannot be used as a step name")
                         |> ignore
 
