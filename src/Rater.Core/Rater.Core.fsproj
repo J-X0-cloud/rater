@@ -17,6 +17,11 @@
     <Compile Include="Printer.fs" />
     <Compile Include="Builtins.fs" />
     <Compile Include="TypeCheck.fs" />
+    <Compile Include="Interpreter.fs" />
+    <Compile Include="RateBook.fs" />
+    <Compile Include="Product.fs" />
+    <Compile Include="Underwriting.fs" />
+    <Compile Include="Rating.fs" />
   </ItemGroup>
 
 </Project>
