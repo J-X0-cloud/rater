@@ -240,7 +240,12 @@ let bench (args: string list) =
     match positional with
     | [ productPath; requestPath ] ->
         let iterations =
-            options.TryFind "iterations" |> Option.map int |> Option.defaultValue 20000
+            match options.TryFind "iterations" with
+            | None -> 20000
+            | Some text ->
+                match Int32.TryParse text with
+                | true, n when n >= 100 -> n
+                | _ -> fail "--iterations must be a whole number of at least 100"
 
         let productJson = readFile productPath
         let plan = loadPlan productPath
