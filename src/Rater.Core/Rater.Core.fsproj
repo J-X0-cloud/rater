@@ -25,6 +25,8 @@
     <Compile Include="Quote.fs" />
     <Compile Include="QuoteStore.fs" />
     <Compile Include="Json.fs" />
+    <Compile Include="ProductCodec.fs" />
+    <Compile Include="ModelCodec.fs" />
   </ItemGroup>
 
 </Project>

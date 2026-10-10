@@ -143,6 +143,8 @@ type LookupTrace =
     { Table: string
       Arguments: (string * Value) list
       Matches: DimensionMatch list
+      /// One human-readable line per dimension, e.g. "limit: between 250000 and 300000 (weight 0.5)".
+      Explanation: string list
       Result: decimal }
 
 [<RequireQualifiedAccess>]
@@ -406,6 +408,20 @@ module Table =
                         Ok(Between(lo, hi, w))
         | (Banded | Interpolated _), v -> Error(ArgumentType(table, d.Name, TNumber, v))
 
+    let describeMatch (t: Table) (dimIndex: int) (m: DimensionMatch) =
+        let d = t.dimensions[dimIndex]
+
+        match m with
+        | Hit(_, k) -> $"{d.Name}: {k}"
+        | Between(lo, hi, w)
+        | Extrapolated(lo, hi, w) ->
+            let verb =
+                match m with
+                | Extrapolated _ -> "extrapolated"
+                | _ -> "between"
+
+            $"{d.Name}: {verb} {d.Keys[lo]} and {d.Keys[hi]} (weight {Decimal.toInvariantString (Decimal.round HalfUp 6 w)})"
+
     /// Multilinear lookup: exact and banded dimensions pin a single index, interpolated
     /// dimensions contribute two corners each, and the result is the weighted sum over all corners.
     let lookup (t: Table) (args: Value list) : Result<LookupTrace, LookupError> =
@@ -446,6 +462,7 @@ module Table =
                 { Table = t.name
                   Arguments = List.zip (t.dimensions |> Array.map (fun d -> d.Name) |> List.ofArray) args
                   Matches = ms
+                  Explanation = ms |> List.mapi (describeMatch t)
                   Result = value })
 
     /// Two tables can be swapped for one another without re-checking algorithms when their
@@ -457,17 +474,3 @@ module Table =
     let scale (factor: decimal) (places: int) (t: Table) =
         { t with
             cells = t.cells |> Array.map (fun c -> Decimal.round HalfUp places (c * factor)) }
-
-    let describeMatch (t: Table) (dimIndex: int) (m: DimensionMatch) =
-        let d = t.dimensions[dimIndex]
-
-        match m with
-        | Hit(_, k) -> $"{d.Name}: {k}"
-        | Between(lo, hi, w)
-        | Extrapolated(lo, hi, w) ->
-            let verb =
-                match m with
-                | Extrapolated _ -> "extrapolated"
-                | _ -> "between"
-
-            $"{d.Name}: {verb} {d.Keys[lo]} and {d.Keys[hi]} (weight {Decimal.toInvariantString (Decimal.round HalfUp 6 w)})"
