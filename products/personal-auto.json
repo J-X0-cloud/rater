@@ -1,0 +1,236 @@
+{
+  "code": "PPA",
+  "name": "Private Passenger Auto",
+  "currency": "USD",
+  "description": "Single-vehicle personal auto: liability, collision, comprehensive and rental reimbursement.",
+  "available": "2025-07-01",
+  "quoteValidityDays": 14,
+  "attributes": [
+    { "name": "territory", "type": "text", "required": true, "allowed": ["A", "B", "C", "D"] },
+    { "name": "driver_birth_date", "type": "date", "required": true },
+    { "name": "years_licensed", "type": "number", "required": true, "integer": true, "min": 0, "max": 80 },
+    { "name": "at_fault_accidents", "type": "number", "integer": true, "min": 0, "max": 20, "default": 0,
+      "description": "At-fault accidents in the last three years" },
+    { "name": "violations", "type": "number", "integer": true, "min": 0, "max": 20, "default": 0,
+      "description": "Moving violations in the last three years" },
+    { "name": "vehicle_year", "type": "number", "required": true, "integer": true, "min": 1960, "max": 2100 },
+    { "name": "vehicle_symbol", "type": "number", "required": true, "integer": true, "min": 1, "max": 20,
+      "description": "Physical damage rating symbol from the vehicle series table" },
+    { "name": "annual_mileage", "type": "number", "required": true, "min": 0 },
+    { "name": "use", "type": "text", "default": "commute", "allowed": ["pleasure", "commute", "business"] },
+    { "name": "good_student", "type": "bool", "default": false },
+    { "name": "multi_policy", "type": "bool", "default": false }
+  ],
+  "coverages": [
+    {
+      "code": "BI",
+      "name": "Bodily Injury Liability",
+      "required": true,
+      "limit": { "min": 25000, "max": 500000, "increment": 25000, "default": 100000 },
+      "minimumPremium": 90,
+      "algorithm": [
+        "age := years_between(risk.driver_birth_date, policy.effective_date)",
+        "territory := #territory_liability[risk.territory]",
+        "driver := #driver_age[age]",
+        "experience := #experience[risk.years_licensed]",
+        "record := #driving_record[min(risk.at_fault_accidents, 3), min(risk.violations, 3)]",
+        "limit_factor := #increased_limits[coverage.limit]",
+        "mileage := #mileage[risk.annual_mileage]",
+        "use := #vehicle_use[risk.use]",
+        "student := if risk.good_student and age < 25 then 10% else 0",
+        "multi := if risk.multi_policy then 8% else 0",
+        "discount := 1 - min(25%, student + multi)",
+        "premium := round(territory * driver * experience * record * limit_factor * mileage * use * discount, 2)"
+      ]
+    },
+    {
+      "code": "COLLISION",
+      "name": "Collision",
+      "limit": { "min": 0, "max": 0, "default": 0 },
+      "deductibles": [250, 500, 1000, 2000],
+      "defaultDeductible": 500,
+      "minimumPremium": 50,
+      "algorithm": [
+        "base := #territory_physical_damage[risk.territory, \"collision\"]",
+        "symbol := #symbol[risk.vehicle_symbol, \"collision\"]",
+        "vehicle_age := #vehicle_age[max(year(policy.effective_date) - risk.vehicle_year, 0)]",
+        "driver := #driver_age[years_between(risk.driver_birth_date, policy.effective_date)]",
+        "record := #driving_record[min(risk.at_fault_accidents, 3), 0]",
+        "deductible := #physical_damage_deductible[coverage.deductible]",
+        "premium := round(base * symbol * vehicle_age * driver * record * deductible, 2)"
+      ]
+    },
+    {
+      "code": "COMPREHENSIVE",
+      "name": "Comprehensive (Other Than Collision)",
+      "limit": { "min": 0, "max": 0, "default": 0 },
+      "deductibles": [100, 250, 500, 1000],
+      "defaultDeductible": 250,
+      "minimumPremium": 30,
+      "algorithm": [
+        "base := #territory_physical_damage[risk.territory, \"comprehensive\"]",
+        "symbol := #symbol[risk.vehicle_symbol, \"comprehensive\"]",
+        "vehicle_age := #vehicle_age[max(year(policy.effective_date) - risk.vehicle_year, 0)]",
+        "deductible := #physical_damage_deductible[coverage.deductible]",
+        "premium := round(base * symbol * vehicle_age * deductible, 2)"
+      ]
+    },
+    {
+      "code": "RENTAL",
+      "name": "Rental Reimbursement",
+      "limit": { "min": 30, "max": 60, "increment": 10, "default": 40 },
+      "requires": ["COMPREHENSIVE"],
+      "algorithm": "premium := round(coverage.limit * 0.55, 2)"
+    }
+  ],
+  "tables": [
+    {
+      "name": "territory_liability",
+      "dimensions": [ { "name": "territory" } ],
+      "versions": [
+        { "effective": "2025-07-01", "label": "initial filing",
+          "rows": [ ["A", 412], ["B", 465], ["C", 538], ["D", 702] ] },
+        { "effective": "2026-04-01", "label": "territory D loss development",
+          "rows": [ ["A", 412], ["B", 471], ["C", 538], ["D", 768] ] }
+      ]
+    },
+    {
+      "name": "driver_age",
+      "description": "Driver age curve; ages outside the filed points use the nearest end",
+      "dimensions": [ { "name": "age", "kind": "interpolate", "extrapolation": "clamp" } ],
+      "versions": [
+        { "effective": "2025-07-01",
+          "rows": [ [16, 2.85], [18, 2.40], [21, 1.75], [25, 1.25], [30, 1.05], [40, 0.95],
+                    [55, 0.92], [65, 1.00], [75, 1.18], [85, 1.45] ] }
+      ]
+    },
+    {
+      "name": "experience",
+      "dimensions": [ { "name": "years", "kind": "band" } ],
+      "versions": [
+        { "effective": "2025-07-01",
+          "rows": [ ["0..1", 1.45], ["1..3", 1.25], ["3..6", 1.10], ["6..", 1.00] ] }
+      ]
+    },
+    {
+      "name": "driving_record",
+      "description": "At-fault accidents by moving violations",
+      "dimensions": [ { "name": "accidents", "type": "number" }, { "name": "violations", "type": "number" } ],
+      "versions": [
+        { "effective": "2025-07-01",
+          "rows": [
+            [0, 0, 1.00], [0, 1, 1.12], [0, 2, 1.28], [0, 3, 1.50],
+            [1, 0, 1.30], [1, 1, 1.45], [1, 2, 1.65], [1, 3, 1.90],
+            [2, 0, 1.70], [2, 1, 1.90], [2, 2, 2.15], [2, 3, 2.45],
+            [3, 0, 2.20], [3, 1, 2.45], [3, 2, 2.75], [3, 3, 3.10]
+          ] }
+      ]
+    },
+    {
+      "name": "increased_limits",
+      "dimensions": [ { "name": "limit", "kind": "interpolate" } ],
+      "versions": [
+        { "effective": "2025-07-01",
+          "rows": [ [25000, 0.78], [50000, 0.90], [100000, 1.00], [250000, 1.18], [500000, 1.32] ] }
+      ]
+    },
+    {
+      "name": "mileage",
+      "dimensions": [ { "name": "miles", "kind": "band" } ],
+      "versions": [
+        { "effective": "2025-07-01",
+          "rows": [ ["..5000", 0.85], ["5000..10000", 0.95], ["10000..15000", 1.00], ["15000..25000", 1.10], ["25000..", 1.22] ] }
+      ]
+    },
+    {
+      "name": "vehicle_use",
+      "dimensions": [ { "name": "use" } ],
+      "versions": [
+        { "effective": "2025-07-01", "rows": [ ["pleasure", 0.90], ["commute", 1.00], ["business", 1.20] ] }
+      ]
+    },
+    {
+      "name": "territory_physical_damage",
+      "dimensions": [ { "name": "territory" }, { "name": "coverage" } ],
+      "versions": [
+        { "effective": "2025-07-01",
+          "rows": [
+            ["A", "collision", 310], ["A", "comprehensive", 96],
+            ["B", "collision", 344], ["B", "comprehensive", 118],
+            ["C", "collision", 391], ["C", "comprehensive", 142],
+            ["D", "collision", 455], ["D", "comprehensive", 187]
+          ] }
+      ]
+    },
+    {
+      "name": "symbol",
+      "description": "Vehicle rating symbol relativities; symbols 15 and above share the top row",
+      "dimensions": [ { "name": "symbol", "kind": "band" }, { "name": "coverage" } ],
+      "versions": [
+        { "effective": "2025-07-01",
+          "rows": [
+            ["1..5", "collision", 0.70], ["1..5", "comprehensive", 0.75],
+            ["5..10", "collision", 1.00], ["5..10", "comprehensive", 1.00],
+            ["10..15", "collision", 1.40], ["10..15", "comprehensive", 1.30],
+            ["15..", "collision", 1.95], ["15..", "comprehensive", 1.70]
+          ] }
+      ]
+    },
+    {
+      "name": "vehicle_age",
+      "dimensions": [ { "name": "age", "kind": "interpolate", "extrapolation": "clamp" } ],
+      "versions": [
+        { "effective": "2025-07-01",
+          "rows": [ [0, 1.10], [2, 1.00], [5, 0.85], [10, 0.65], [15, 0.50] ] }
+      ]
+    },
+    {
+      "name": "physical_damage_deductible",
+      "dimensions": [ { "name": "deductible", "type": "number" } ],
+      "versions": [
+        { "effective": "2025-07-01",
+          "rows": [ [100, 1.15], [250, 1.00], [500, 0.88], [1000, 0.74], [2000, 0.61] ] }
+      ]
+    }
+  ],
+  "rules": [
+    {
+      "id": "AUTO-ACCIDENTS",
+      "when": "risk.at_fault_accidents >= 3",
+      "action": "decline",
+      "message": "three or more at-fault accidents in three years"
+    },
+    {
+      "id": "AUTO-UNDERAGE",
+      "when": "years_between(risk.driver_birth_date, policy.effective_date) < 16",
+      "action": "decline",
+      "message": "driver is under the minimum licensing age"
+    },
+    {
+      "id": "AUTO-VIOLATIONS",
+      "when": "risk.violations >= 3",
+      "action": "refer",
+      "message": "three or more moving violations"
+    },
+    {
+      "id": "AUTO-HIGH-SYMBOL",
+      "when": "risk.vehicle_symbol >= 18 and premium.COLLISION > 0",
+      "action": "refer",
+      "message": "physical damage on a high-value vehicle"
+    },
+    {
+      "id": "AUTO-NEW-DRIVER-HIGH-LIMIT",
+      "when": "risk.years_licensed < 2 and premium.BI > 1500",
+      "action": "refer",
+      "message": "inexperienced driver with high liability premium"
+    }
+  ],
+  "fees": [ { "code": "MVR", "name": "Motor vehicle report fee", "amount": 8 } ],
+  "premium": {
+    "rounding": "half_up",
+    "places": 2,
+    "policyMinimum": 150,
+    "minimumTermDays": 180,
+    "maximumTermDays": 366
+  }
+}

@@ -1,0 +1,26 @@
+[
+  {
+    "effectiveDate": "2026-01-15",
+    "risk": { "territory": "A", "driver_birth_date": "1980-02-11", "years_licensed": 25, "vehicle_year": 2019,
+              "vehicle_symbol": 7, "annual_mileage": 9000, "use": "pleasure" },
+    "coverages": [ { "code": "BI", "limit": 100000 }, { "code": "COMPREHENSIVE" } ]
+  },
+  {
+    "effectiveDate": "2026-01-15",
+    "risk": { "territory": "D", "driver_birth_date": "1999-06-30", "years_licensed": 7, "vehicle_year": 2024,
+              "vehicle_symbol": 11, "annual_mileage": 18000, "violations": 1 },
+    "coverages": [ { "code": "BI", "limit": 250000 }, { "code": "COLLISION" }, { "code": "COMPREHENSIVE" } ]
+  },
+  {
+    "effectiveDate": "2026-01-15",
+    "risk": { "territory": "B", "driver_birth_date": "1958-12-01", "years_licensed": 48, "vehicle_year": 2015,
+              "vehicle_symbol": 4, "annual_mileage": 4000, "multi_policy": true },
+    "coverages": [ { "code": "BI", "limit": 50000 } ]
+  },
+  {
+    "effectiveDate": "2026-01-15",
+    "risk": { "territory": "D", "driver_birth_date": "2006-03-19", "years_licensed": 1, "vehicle_year": 2012,
+              "vehicle_symbol": 9, "annual_mileage": 11000, "good_student": true },
+    "coverages": [ { "code": "BI", "limit": 50000 }, { "code": "COLLISION", "deductible": 2000 } ]
+  }
+]

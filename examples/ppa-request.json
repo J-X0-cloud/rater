@@ -1,0 +1,22 @@
+{
+  "effectiveDate": "2026-05-15",
+  "expirationDate": "2026-11-15",
+  "risk": {
+    "territory": "D",
+    "driver_birth_date": "2003-09-02",
+    "years_licensed": 5,
+    "at_fault_accidents": 1,
+    "violations": 1,
+    "vehicle_year": 2022,
+    "vehicle_symbol": 12,
+    "annual_mileage": 14000,
+    "good_student": true,
+    "multi_policy": true
+  },
+  "coverages": [
+    { "code": "BI", "limit": 250000 },
+    { "code": "COLLISION", "deductible": 1000 },
+    { "code": "COMPREHENSIVE", "deductible": 500 },
+    { "code": "RENTAL", "limit": 40 }
+  ]
+}
