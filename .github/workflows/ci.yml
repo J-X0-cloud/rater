@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Restore tools
+        run: dotnet tool restore
+
+      - name: Check formatting
+        run: dotnet fantomas --check src tests
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build (warnings are errors)
+        run: dotnet build --no-restore -c Release
+
+      - name: Test
+        run: dotnet test --no-build -c Release --logger "console;verbosity=normal"
+
+      - name: Validate sample products
+        run: dotnet run --project src/Rater.Cli -c Release --no-build -- validate products/*.json
+
+      - name: Rate the examples
+        run: |
+          dotnet run --project src/Rater.Cli -c Release --no-build -- rate products/homeowners.json examples/ho3-request.json
+          dotnet run --project src/Rater.Cli -c Release --no-build -- rate products/personal-auto.json examples/ppa-request.json
+
+  docker:
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image
+        run: docker build -t rater-api .
+      - name: Smoke test
+        run: |
+          docker run -d --name rater -e PORT=9090 -p 9090:9090 rater-api
+          for i in $(seq 1 30); do
+            if curl -fs http://localhost:9090/health; then exit 0; fi
+            sleep 1
+          done
+          docker logs rater
+          exit 1
