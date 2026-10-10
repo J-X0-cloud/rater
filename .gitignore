@@ -1,0 +1,13 @@
+bin/
+obj/
+out/
+publish/
+TestResults/
+*.user
+*.suo
+.vs/
+.idea/
+.ionide/
+*.swp
+.DS_Store
+BenchmarkDotNet.Artifacts/

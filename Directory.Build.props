@@ -1,0 +1,14 @@
+<Project>
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>8.0</LangVersion>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <WarnOn>3390;1182</WarnOn>
+    <OtherFlags>$(OtherFlags) --warnon:1182</OtherFlags>
+    <Deterministic>true</Deterministic>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <Authors>James Lee</Authors>
+    <Copyright>Copyright (c) 2026 James Lee</Copyright>
+  </PropertyGroup>
+</Project>
