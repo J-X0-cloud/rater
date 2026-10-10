@@ -47,8 +47,7 @@ let tests =
               abs (Decimal.round mode places d - d) < 1m / pown 10m places
 
           testPropertyWithConfig config "up never decreases magnitude and down never increases it"
-          <| fun (d: decimal) ->
-              abs (Decimal.round Up 2 d) >= abs d && abs (Decimal.round Down 2 d) <= abs d
+          <| fun (d: decimal) -> abs (Decimal.round Up 2 d) >= abs d && abs (Decimal.round Down 2 d) <= abs d
 
           test "money arithmetic keeps the currency" {
               let a = Money.create "USD" 10.25m
@@ -59,7 +58,9 @@ let tests =
           }
 
           test "money refuses to mix currencies" {
-              Expect.throws (fun () -> Money.create "USD" 1m + Money.create "EUR" 1m |> ignore) "currency mismatch"
+              Expect.throws
+                  (fun () -> Money.create "USD" 1m + Money.create "EUR" 1m |> ignore)
+                  "currency mismatch"
           }
 
           test "allocation splits a cent remainder to the largest fractional shares" {
@@ -100,5 +101,4 @@ let tests =
           <| fun (total: decimal) (weights: NonEmptyArray<PositiveInt>) ->
               let ws = weights.Get |> Array.map (fun w -> decimal w.Get) |> List.ofArray
 
-              Money.allocate 2 total ws
-              |> List.forall (fun p -> Decimal.round HalfUp 2 p = p) ]
+              Money.allocate 2 total ws |> List.forall (fun p -> Decimal.round HalfUp 2 p = p) ]

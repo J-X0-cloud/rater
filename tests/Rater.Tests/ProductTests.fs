@@ -82,7 +82,10 @@ let tests =
           }
 
           test "a coverage may not use its own premium" {
-              let p = { baseProduct with Coverages = [ coverage "A" "premium := premium.A" ] }
+              let p =
+                  { baseProduct with
+                      Coverages = [ coverage "A" "premium := premium.A" ] }
+
               Expect.exists (issues p) (fun m -> m.Contains "its own premium") "self reference"
           }
 
@@ -114,8 +117,16 @@ let tests =
                       Allowed = Some [ VText "x"; VNumber 1m ]
                       Min = Some 1m }
 
-              let msgs = issues { baseProduct with Attributes = baseProduct.Attributes @ [ bad ] }
-              Expect.exists msgs (fun m -> m.Contains "not one of the allowed values") "default outside allowed"
+              let msgs =
+                  issues
+                      { baseProduct with
+                          Attributes = baseProduct.Attributes @ [ bad ] }
+
+              Expect.exists
+                  msgs
+                  (fun m -> m.Contains "not one of the allowed values")
+                  "default outside allowed"
+
               Expect.exists msgs (fun m -> m.Contains "allowed value 1 is not a text") "allowed type"
               Expect.exists msgs (fun m -> m.Contains "only apply to number attributes") "min on text"
           }
@@ -128,10 +139,16 @@ let tests =
                     Action = Refer
                     Message = id }
 
-              let ok = { baseProduct with Rules = [ rule "R1" "premium.total > 100 and risk.size > 3" ] }
+              let ok =
+                  { baseProduct with
+                      Rules = [ rule "R1" "premium.total > 100 and risk.size > 3" ] }
+
               Expect.isOk (Product.plan ok) "valid rule"
 
-              let bad = { baseProduct with Rules = [ rule "R2" "risk.size + 1" ] }
+              let bad =
+                  { baseProduct with
+                      Rules = [ rule "R2" "risk.size + 1" ] }
+
               Expect.exists (issues bad) (fun m -> m.Contains "condition must be a bool") "numeric condition"
           }
 
@@ -146,7 +163,11 @@ let tests =
                   |> expectOk
 
               let plan = Product.plan { baseProduct with Tables = [ table ] } |> expectOk
-              Expect.exists plan.Warnings (fun w -> w.Message.Contains "after the product becomes available") "warning"
+
+              Expect.exists
+                  plan.Warnings
+                  (fun w -> w.Message.Contains "after the product becomes available")
+                  "warning"
           }
 
           testPropertyWithConfig quickConfig "topological order respects every dependency"
@@ -168,9 +189,13 @@ let tests =
                   let position = order |> List.mapi (fun i c -> c, i) |> Map.ofList
 
                   order.Length = codes.Length
-                  && deps |> Map.forall (fun c ds -> ds |> Set.forall (fun d -> position[d] < position[c]))
+                  && deps
+                     |> Map.forall (fun c ds -> ds |> Set.forall (fun d -> position[d] < position[c]))
 
           test "both sample products validate without errors" {
-              Expect.isEmpty (homeowners.Value.Warnings |> List.filter (fun w -> w.Severity = Severity.Error)) "HO3"
+              Expect.isEmpty
+                  (homeowners.Value.Warnings |> List.filter (fun w -> w.Severity = Severity.Error))
+                  "HO3"
+
               Expect.isEmpty (auto.Value.Warnings |> List.filter (fun w -> w.Severity = Severity.Error)) "PPA"
           } ]

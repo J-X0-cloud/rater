@@ -9,10 +9,16 @@ let money (d: decimal) =
     d.ToString("#,##0.00", CultureInfo.InvariantCulture)
 
 let private pad (width: int) (s: string) =
-    if s.Length >= width then s else s + String(' ', width - s.Length)
+    if s.Length >= width then
+        s
+    else
+        s + String(' ', width - s.Length)
 
 let private padLeft (width: int) (s: string) =
-    if s.Length >= width then s else String(' ', width - s.Length) + s
+    if s.Length >= width then
+        s
+    else
+        String(' ', width - s.Length) + s
 
 /// Renders a plain-text table with a header rule; numeric-looking columns are right aligned.
 let table (headers: string list) (rows: string list list) =
@@ -28,16 +34,25 @@ let table (headers: string list) (rows: string list list) =
         |> List.forall (fun r ->
             i >= r.Length
             || r[i] = ""
-            || Decimal.TryParse(r[i].Replace(",", ""), NumberStyles.Number, CultureInfo.InvariantCulture) |> fst)
+            || Decimal.TryParse(r[i].Replace(",", ""), NumberStyles.Number, CultureInfo.InvariantCulture)
+               |> fst)
 
     let line (cells: string list) =
         cells
-        |> List.mapi (fun i c -> if numeric i && not (rows.IsEmpty) then padLeft widths[i] c else pad widths[i] c)
+        |> List.mapi (fun i c ->
+            if numeric i && not (rows.IsEmpty) then
+                padLeft widths[i] c
+            else
+                pad widths[i] c)
         |> String.joinWith "  "
 
     let sb = StringBuilder()
-    sb.AppendLine(headers |> List.mapi (fun i h -> pad widths[i] h) |> String.joinWith "  ") |> ignore
-    sb.AppendLine(widths |> List.map (fun w -> String('-', w)) |> String.joinWith "  ") |> ignore
+
+    sb.AppendLine(headers |> List.mapi (fun i h -> pad widths[i] h) |> String.joinWith "  ")
+    |> ignore
+
+    sb.AppendLine(widths |> List.map (fun w -> String('-', w)) |> String.joinWith "  ")
+    |> ignore
 
     for r in rows do
         sb.AppendLine(line r) |> ignore
@@ -48,7 +63,9 @@ let worksheet (r: RatingResult) =
     let sb = StringBuilder()
     let w (s: string) = sb.AppendLine s |> ignore
 
-    w $"Product {r.Product}, {Dates.iso r.EffectiveDate} to {Dates.iso r.ExpirationDate} ({r.TermDays} days, term factor {Decimal.toInvariantString (Decimal.round HalfUp 6 r.TermFactor)})"
+    w
+        $"Product {r.Product}, {Dates.iso r.EffectiveDate} to {Dates.iso r.ExpirationDate} ({r.TermDays} days, term factor {Decimal.toInvariantString (Decimal.round HalfUp 6 r.TermFactor)})"
+
     w ""
 
     for c in r.Coverages do
@@ -62,7 +79,12 @@ let worksheet (r: RatingResult) =
                 let matched = lookup.Explanation |> String.joinWith "; "
                 w $"        #{lookup.Table}: {matched} -> {Decimal.toInvariantString lookup.Result}"
 
-        let minimum = if c.MinimumApplied then " (coverage minimum applied)" else ""
+        let minimum =
+            if c.MinimumApplied then
+                " (coverage minimum applied)"
+            else
+                ""
+
         w $"    annual {money c.AnnualPremium}{minimum}, written {money c.WrittenPremium}"
         w ""
 
@@ -113,7 +135,9 @@ let diff (d: TableDiff) =
 
     let sb = StringBuilder()
 
-    sb.AppendLine($"{d.Table}: {Dates.iso d.From} -> {Dates.iso d.To}, {d.Changed.Length} changed, {d.Unchanged} unchanged")
+    sb.AppendLine(
+        $"{d.Table}: {Dates.iso d.From} -> {Dates.iso d.To}, {d.Changed.Length} changed, {d.Unchanged} unchanged"
+    )
     |> ignore
 
     match d.Range with

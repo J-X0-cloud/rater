@@ -95,7 +95,8 @@ module Printer =
             let p = opPower op
             let leftParens = if isComparison op then power l <= p else power l < p
             $"{wrap leftParens l} {operator op} {wrap (power r <= p) r}"
-        | In(x, items) -> $"""{wrap (power x <= 40) x} in [{items |> List.map expr |> String.joinWith ", "}]"""
+        | In(x, items) ->
+            $"""{wrap (power x <= 40) x} in [{items |> List.map expr |> String.joinWith ", "}]"""
         | If(branches, otherwise) ->
             let sb = StringBuilder()
 

@@ -29,7 +29,10 @@ module Result =
             | Ok v -> oks.Add v
             | Error es -> errs.AddRange es
 
-        if errs.Count = 0 then Ok(List.ofSeq oks) else Error(List.ofSeq errs)
+        if errs.Count = 0 then
+            Ok(List.ofSeq oks)
+        else
+            Error(List.ofSeq errs)
 
     /// Fails fast on the first error.
     let traverse (f: 'a -> Result<'b, 'e>) (items: 'a list) : Result<'b list, 'e> =
@@ -99,7 +102,10 @@ module Map =
         let folder (m: Map<'k, 'a>, dups) item =
             let k = keyOf item
 
-            if m.ContainsKey k then (m, k :: dups) else (Map.add k item m, dups)
+            if m.ContainsKey k then
+                (m, k :: dups)
+            else
+                (Map.add k item m, dups)
 
         let m, dups = List.fold folder (Map.empty, []) items
         m, List.rev dups |> List.distinct

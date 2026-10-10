@@ -40,7 +40,10 @@ type QuoteStore(deps: LifecycleDeps) =
         |> Result.bind (fun () -> Quote.decide deps (current |> Option.map (fun r -> r.Quote)) command)
         |> Result.map (fun events ->
             let previous = current |> Option.map (fun r -> r.Events) |> Option.defaultValue []
-            let state = events |> List.fold (fun s e -> Some(Quote.evolve s e)) (current |> Option.map (fun r -> r.Quote))
+
+            let state =
+                events
+                |> List.fold (fun s e -> Some(Quote.evolve s e)) (current |> Option.map (fun r -> r.Quote))
 
             { Quote = state.Value
               Events = previous @ events })

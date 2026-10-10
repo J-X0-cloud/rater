@@ -22,9 +22,18 @@ let tests =
           }
 
           test "parseAs reads each type and rejects junk" {
-              Expect.equal (Value.parseAs TNumber "1,250.5" |> expectOk) (VNumber 1250.5m) "number with separator"
+              Expect.equal
+                  (Value.parseAs TNumber "1,250.5" |> expectOk)
+                  (VNumber 1250.5m)
+                  "number with separator"
+
               Expect.equal (Value.parseAs TBool "Yes" |> expectOk) (VBool true) "yes"
-              Expect.equal (Value.parseAs TDate "2026-02-28" |> expectOk) (VDate(DateOnly(2026, 2, 28))) "date"
+
+              Expect.equal
+                  (Value.parseAs TDate "2026-02-28" |> expectOk)
+                  (VDate(DateOnly(2026, 2, 28)))
+                  "date"
+
               Expect.isError (Value.parseAs TDate "2026-02-30") "impossible date"
               Expect.isError (Value.parseAs TNumber "twelve") "word"
               Expect.isError (Value.parseAs TBool "maybe") "not a bool"
@@ -37,13 +46,23 @@ let tests =
 
           test "leap-day birthdays complete on 28 February in common years" {
               Expect.equal (Dates.yearsBetween (date "2000-02-29") (date "2001-02-28")) 1 "28 Feb"
+
               Expect.equal (Dates.yearsBetween (date "2000-02-29") (date "2004-02-28")) 3 "leap year: not yet"
-              Expect.equal (Dates.yearsBetween (date "2000-02-29") (date "2004-02-29")) 4 "leap year anniversary"
+
+              Expect.equal
+                  (Dates.yearsBetween (date "2000-02-29") (date "2004-02-29"))
+                  4
+                  "leap year anniversary"
           }
 
           test "months between counts whole months, clamping month-end anniversaries" {
               Expect.equal (Dates.monthsBetween (date "2026-01-31") (date "2026-02-27")) 0 "not yet"
-              Expect.equal (Dates.monthsBetween (date "2026-01-31") (date "2026-02-28")) 1 "end of a short month"
+
+              Expect.equal
+                  (Dates.monthsBetween (date "2026-01-31") (date "2026-02-28"))
+                  1
+                  "end of a short month"
+
               Expect.equal (Dates.monthsBetween (date "2026-01-15") (date "2026-03-15")) 2 "two months"
               Expect.equal (Dates.monthsBetween (date "2026-03-15") (date "2026-01-15")) -2 "negative"
           }
@@ -60,7 +79,11 @@ let tests =
           <| fun (a: DateOnly) (b: DateOnly) ->
               let ys = Dates.yearsBetween a b
               let calendar = b.Year - a.Year
-              if b >= a then ys = calendar || ys = calendar - 1 else ys = calendar || ys = calendar + 1
+
+              if b >= a then
+                  ys = calendar || ys = calendar - 1
+              else
+                  ys = calendar || ys = calendar + 1
 
           testPropertyWithConfig config "days between is additive"
           <| fun (a: DateOnly) (b: DateOnly) (c: DateOnly) ->
@@ -73,6 +96,10 @@ let tests =
           }
 
           test "edit distance suggestions" {
-              Expect.equal (String.suggest [ "territory"; "construction" ] "teritory") (Some "territory") "typo"
+              Expect.equal
+                  (String.suggest [ "territory"; "construction" ] "teritory")
+                  (Some "territory")
+                  "typo"
+
               Expect.equal (String.suggest [ "territory"; "construction" ] "zzz") None "nothing close"
           } ]

@@ -55,7 +55,10 @@ type TableDiff =
     member d.Range =
         let moves = d.Changed |> List.choose (fun c -> c.Change)
 
-        if moves.IsEmpty then None else Some(List.min moves, List.max moves)
+        if moves.IsEmpty then
+            None
+        else
+            Some(List.min moves, List.max moves)
 
 [<RequireQualifiedAccess>]
 module VersionedTable =
@@ -93,8 +96,7 @@ module VersionedTable =
                       let actual = Table.signature v.Table
 
                       if actual <> expected then
-                          let detail =
-                              $"was ({describeSignature expected}), now ({describeSignature actual})"
+                          let detail = $"was ({describeSignature expected}), now ({describeSignature actual})"
 
                           yield SignatureChanged(name, v.Effective, detail)
               | [] -> () ]
@@ -140,8 +142,7 @@ module VersionedTable =
             let before = cells a
             let after = cells b
 
-            let keys =
-                Seq.append before.Keys after.Keys |> Seq.distinct |> List.ofSeq
+            let keys = Seq.append before.Keys after.Keys |> Seq.distinct |> List.ofSeq
 
             let changes =
                 keys

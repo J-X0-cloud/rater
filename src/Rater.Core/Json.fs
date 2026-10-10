@@ -52,7 +52,10 @@ module Decode =
             | JsonValueKind.Number ->
                 match e.TryGetDecimal() with
                 | true, d -> Ok d
-                | _ -> Error [ { Path = path; Message = "number is out of range" } ]
+                | _ ->
+                    Error
+                        [ { Path = path
+                            Message = "number is out of range" } ]
             | _ -> expected "a number" path e
 
     let int: Decoder<int> =
@@ -61,7 +64,10 @@ module Decode =
             | JsonValueKind.Number ->
                 match e.TryGetInt32() with
                 | true, i -> Ok i
-                | _ -> Error [ { Path = path; Message = "expected a whole number" } ]
+                | _ ->
+                    Error
+                        [ { Path = path
+                            Message = "expected a whole number" } ]
             | _ -> expected "a whole number" path e
 
     let bool: Decoder<bool> =
@@ -148,7 +154,8 @@ module Decode =
             match e.ValueKind with
             | JsonValueKind.Object ->
                 e.EnumerateObject()
-                |> Result.traverseAll (fun p -> d (child path p.Name) p.Value |> Result.map (fun v -> p.Name, v))
+                |> Result.traverseAll (fun p ->
+                    d (child path p.Name) p.Value |> Result.map (fun v -> p.Name, v))
             | _ -> expected "an object" path e
 
     /// Rejects properties a decoder does not know about, catching misspelt field names.
@@ -193,10 +200,20 @@ module Decode =
 
     let fromString (d: Decoder<'a>) (json: string) : Result<'a, DecodeError list> =
         try
-            use doc = JsonDocument.Parse(json, JsonDocumentOptions(CommentHandling = JsonCommentHandling.Skip, AllowTrailingCommas = true))
+            use doc =
+                JsonDocument.Parse(
+                    json,
+                    JsonDocumentOptions(
+                        CommentHandling = JsonCommentHandling.Skip,
+                        AllowTrailingCommas = true
+                    )
+                )
+
             d "" (doc.RootElement.Clone())
         with :? JsonException as ex ->
-            Error [ { Path = ""; Message = $"invalid JSON: {ex.Message}" } ]
+            Error
+                [ { Path = ""
+                    Message = $"invalid JSON: {ex.Message}" } ]
 
 /// Applicative computation expression: `let! ... and! ...` runs every decoder and merges errors.
 type DecoderBuilder() =

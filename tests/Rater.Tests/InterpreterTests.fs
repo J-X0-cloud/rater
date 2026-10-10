@@ -77,7 +77,9 @@ let tests =
               Expect.equal (eval "min(3, 1, 2) + max(3, 1, 2)") (VNumber 4m) "min and max"
               Expect.equal (eval "pow(1.03, 2)") (VNumber 1.0609m) "pow"
               Expect.equal (eval "pow(2, -2)") (VNumber 0.25m) "negative pow"
+
               Expect.equal (eval "years_between(risk.birth_date, policy.effective_date)") (VNumber 65m) "age"
+
               Expect.equal (eval "months_between(@2026-01-15, @2026-04-14)") (VNumber 2m) "months"
               Expect.equal (eval "year(add_years(@2024-02-29, 1))") (VNumber 2025m) "add years"
               Expect.equal (eval "upper(lower(\"MiXeD\"))") (VText "MIXED") "case"
@@ -110,11 +112,14 @@ let tests =
 
           test "worksheet records each step with its lookups" {
               let sheet =
-                  run "base := #territory[risk.territory]\nfactor := #aoi[coverage.limit]\npremium := round(base * factor, 2)"
+                  run
+                      "base := #territory[risk.territory]\nfactor := #aoi[coverage.limit]\npremium := round(base * factor, 2)"
                   |> expectOk
 
               Expect.equal sheet.Premium 715m "premium"
+
               Expect.equal (sheet.Lines |> List.map (fun l -> l.Step)) [ "base"; "factor"; "premium" ] "steps"
+
               Expect.equal sheet.Lines[0].Lookups.Head.Table "territory" "lookup recorded"
               Expect.isEmpty sheet.Lines[2].Lookups "no lookups in the last step"
               Expect.equal sheet.Lines[2].Formula "round(base * factor, 2)" "formula"

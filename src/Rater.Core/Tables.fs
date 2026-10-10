@@ -140,12 +140,14 @@ type LookupError =
 
 /// Explains how a lookup arrived at its value; rendered into the rating worksheet.
 type LookupTrace =
-    { Table: string
-      Arguments: (string * Value) list
-      Matches: DimensionMatch list
-      /// One human-readable line per dimension, e.g. "limit: between 250000 and 300000 (weight 0.5)".
-      Explanation: string list
-      Result: decimal }
+    {
+        Table: string
+        Arguments: (string * Value) list
+        Matches: DimensionMatch list
+        /// One human-readable line per dimension, e.g. "limit: between 250000 and 300000 (weight 0.5)".
+        Explanation: string list
+        Result: decimal
+    }
 
 [<RequireQualifiedAccess>]
 module Table =
@@ -243,7 +245,11 @@ module Table =
         |> List.ofArray
 
     /// Builds a dense table from sparse rows, reporting every structural problem at once.
-    let build (name: string) (dimensions: Dimension list) (rows: TableRow list) : Result<Table, TableError list> =
+    let build
+        (name: string)
+        (dimensions: Dimension list)
+        (rows: TableRow list)
+        : Result<Table, TableError list> =
         let dims = Array.ofList dimensions
 
         if dims.Length = 0 then
@@ -281,7 +287,12 @@ module Table =
                                 | Some i -> Ok i
                                 | None -> Error(UnknownRowKey(name, rowNo, d.Name, string k)))
 
-                        match indexes |> List.choose (function Error e -> Some e | Ok _ -> None) with
+                        match
+                            indexes
+                            |> List.choose (function
+                                | Error e -> Some e
+                                | Ok _ -> None)
+                        with
                         | [] ->
                             let flat =
                                 indexes
@@ -357,7 +368,11 @@ module Table =
 
         search 0 (sorted.Length - 1)
 
-    let private matchDimension (table: string) (d: Dimension) (arg: Value) : Result<DimensionMatch, LookupError> =
+    let private matchDimension
+        (table: string)
+        (d: Dimension)
+        (arg: Value)
+        : Result<DimensionMatch, LookupError> =
         match d.Kind, arg with
         | Exact t, v when v.Type = t ->
             match d.Keys |> Array.tryFindIndex (fun k -> k = Key v) with

@@ -16,8 +16,7 @@ let decimalGen: Gen<decimal> =
         return Math.Round(value, places)
     }
 
-let positiveDecimalGen =
-    decimalGen |> Gen.map abs |> Gen.filter (fun d -> d > 0m)
+let positiveDecimalGen = decimalGen |> Gen.map abs |> Gen.filter (fun d -> d > 0m)
 
 let dateGen: Gen<DateOnly> =
     Gen.choose (DateOnly(1950, 1, 1).DayNumber, DateOnly(2080, 12, 31).DayNumber)
@@ -43,8 +42,7 @@ let private refGen =
         [ identGen |> Gen.map (fun i -> [ i ])
           Gen.map2 (fun ns f -> [ ns; f ]) (Gen.elements [ "risk"; "coverage"; "policy"; "premium" ]) identGen ]
 
-let private binaryOps =
-    [ Add; Sub; Mul; Div; Eq; Ne; Lt; Le; Gt; Ge; And; Or ]
+let private binaryOps = [ Add; Sub; Mul; Div; Eq; Ne; Lt; Le; Gt; Ge; And; Or ]
 
 /// Expression trees of the shapes the parser produces. Generated trees are deliberately not
 /// well typed: printing and parsing must round-trip regardless of meaning.
@@ -57,6 +55,7 @@ let rec exprGen (size: int) : Gen<Expr> =
         leaf
     else
         let sub = exprGen (size / 2)
+
         let args =
             gen {
                 let! n = Gen.choose (0, 3)
@@ -85,7 +84,14 @@ type Arbitraries =
     static member Date() = Arb.fromGen dateGen
 
     static member Decimal() =
-        Arb.fromGenShrink (decimalGen, fun d -> seq { if d <> 0m then yield Math.Truncate(d / 2m) })
+        Arb.fromGenShrink (
+            decimalGen,
+            fun d ->
+                seq {
+                    if d <> 0m then
+                        yield Math.Truncate(d / 2m)
+                }
+        )
 
 let config =
     { Expecto.FsCheckConfig.defaultConfig with

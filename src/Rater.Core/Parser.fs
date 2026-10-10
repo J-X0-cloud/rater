@@ -14,7 +14,9 @@ module Parser =
         let mutable index = 0
 
         member _.Peek = tokens[index]
-        member _.PeekAt k = tokens[min (index + k) (tokens.Length - 1)]
+
+        member _.PeekAt k =
+            tokens[min (index + k) (tokens.Length - 1)]
 
         member _.Next() =
             let t = tokens[index]
@@ -180,7 +182,10 @@ module Parser =
 
                 match s.Peek with
                 | { Token = TokEnd } -> Ok v
-                | t -> Error { Message = $"unexpected {t.Token}"; Pos = t.Pos }
+                | t ->
+                    Error
+                        { Message = $"unexpected {t.Token}"
+                          Pos = t.Pos }
             with SyntaxException e ->
                 Error e
 

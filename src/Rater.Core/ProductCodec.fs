@@ -66,7 +66,8 @@ module ProductCodec =
             "a string or an array of lines"
 
     let private syntax (parse: string -> Result<'a, SyntaxError>) (d: Decoder<string>) : Decoder<'a> =
-        d |> Decode.andThen (fun src -> parse src |> Result.mapError (fun e -> $"syntax error at {e}"))
+        d
+        |> Decode.andThen (fun src -> parse src |> Result.mapError (fun e -> $"syntax error at {e}"))
 
     let limit: Decoder<LimitRule> =
         Decode.strictObject
@@ -194,7 +195,10 @@ module ProductCodec =
               "maximumTermDays" ]
             (decoder {
                 let! rounding =
-                    Decode.withDefault d.Rounding "rounding" (Decode.string |> Decode.andThen RoundingMode.parse)
+                    Decode.withDefault
+                        d.Rounding
+                        "rounding"
+                        (Decode.string |> Decode.andThen RoundingMode.parse)
 
                 and! places = Decode.withDefault d.Places "places" Decode.int
                 and! policyMinimum = Decode.withDefault d.PolicyMinimum "policyMinimum" Decode.decimal
@@ -233,15 +237,18 @@ module ProductCodec =
                 and! t = Decode.withDefault TText "type" dataType
                 and! extra = Decode.withDefault Reject "extrapolation" extrapolation
                 return name, invariant kind, t, extra
-            }
-            |> Decode.andThen (fun (name, kind, t, extra) ->
-                match kind with
-                | "exact" -> Ok { Name = name; Kind = Exact t }
-                | "band"
-                | "banded" -> Ok { Name = name; Kind = Banded }
-                | "interpolate"
-                | "interpolated" -> Ok { Name = name; Kind = Interpolated extra }
-                | other -> Error $"unknown dimension kind '{other}' (expected exact, band or interpolate)"))
+             }
+             |> Decode.andThen (fun (name, kind, t, extra) ->
+                 match kind with
+                 | "exact" -> Ok { Name = name; Kind = Exact t }
+                 | "band"
+                 | "banded" -> Ok { Name = name; Kind = Banded }
+                 | "interpolate"
+                 | "interpolated" ->
+                     Ok
+                         { Name = name
+                           Kind = Interpolated extra }
+                 | other -> Error $"unknown dimension kind '{other}' (expected exact, band or interpolate)"))
 
     /// Parses `"lo..hi"`, `"lo.."` or `"..hi"` into a band, lower bound inclusive.
     let parseBand (s: string) : Result<Band, string> =
@@ -277,14 +284,17 @@ module ProductCodec =
     let private row (specs: DimensionSpec list) : Decoder<DimensionKey list * decimal> =
         fun path e ->
             if e.ValueKind <> JsonValueKind.Array then
-                Error [ { Path = path; Message = "a table row must be an array of keys followed by a value" } ]
+                Error
+                    [ { Path = path
+                        Message = "a table row must be an array of keys followed by a value" } ]
             else
                 let items = e.EnumerateArray() |> Array.ofSeq
 
                 if items.Length <> specs.Length + 1 then
                     Error
                         [ { Path = path
-                            Message = $"expected {specs.Length} key(s) and a value but found {items.Length} item(s)" } ]
+                            Message =
+                              $"expected {specs.Length} key(s) and a value but found {items.Length} item(s)" } ]
                 else
                     let keys =
                         List.zip specs (List.ofArray items[.. specs.Length - 1])
@@ -340,13 +350,13 @@ module ProductCodec =
                 and! rows = Decode.optional "rows" (Decode.list (row specs))
                 and! derived = Decode.optional "derive" derive
                 return effective, label, rows, derived
-            }
-            |> Decode.andThen (fun (effective, label, rows, derived) ->
-                match rows, derived with
-                | Some r, None -> Ok(Rows(effective, label, r))
-                | None, Some(factor, places) -> Ok(Derived(effective, label, factor, places))
-                | Some _, Some _ -> Error "a version has either 'rows' or 'derive', not both"
-                | None, None -> Error "a version needs 'rows' or 'derive'"))
+             }
+             |> Decode.andThen (fun (effective, label, rows, derived) ->
+                 match rows, derived with
+                 | Some r, None -> Ok(Rows(effective, label, r))
+                 | None, Some(factor, places) -> Ok(Derived(effective, label, factor, places))
+                 | Some _, Some _ -> Error "a version has either 'rows' or 'derive', not both"
+                 | None, None -> Error "a version needs 'rows' or 'derive'"))
 
     let private effectiveOf =
         function
@@ -361,48 +371,53 @@ module ProductCodec =
                 and! description = Decode.optional "description" Decode.string
                 and! specs = Decode.field "dimensions" (Decode.list dimensionSpec)
                 return name, description, specs
-            }
-            |> Decode.bind (fun (name, description, specs) ->
-                Decode.field "versions" (Decode.list (versionSpec specs))
-                |> Decode.andThen (fun versions ->
-                    let ordered = versions |> List.sortBy effectiveOf
+             }
+             |> Decode.bind (fun (name, description, specs) ->
+                 Decode.field "versions" (Decode.list (versionSpec specs))
+                 |> Decode.andThen (fun versions ->
+                     let ordered = versions |> List.sortBy effectiveOf
 
-                    let built =
-                        ordered
-                        |> List.fold
-                            (fun (acc: Result<TableVersion list, string list>) spec ->
-                                acc
-                                |> Result.bind (fun previous ->
-                                    match spec with
-                                    | Rows(effective, label, rows) ->
-                                        let dims = dimensionsFromRows specs rows
+                     let built =
+                         ordered
+                         |> List.fold
+                             (fun (acc: Result<TableVersion list, string list>) spec ->
+                                 acc
+                                 |> Result.bind (fun previous ->
+                                     match spec with
+                                     | Rows(effective, label, rows) ->
+                                         let dims = dimensionsFromRows specs rows
 
-                                        Table.build name dims (rows |> List.map (fun (k, v) -> { Keys = k; Value = v }))
-                                        |> Result.mapError (List.map (fun e -> $"version {Dates.iso effective}: {e}"))
-                                        |> Result.map (fun t ->
-                                            previous
-                                            @ [ { Effective = effective
-                                                  Label = label
-                                                  Table = t } ])
-                                    | Derived(effective, label, factor, places) ->
-                                        match List.tryLast previous with
-                                        | None ->
-                                            Error
-                                                [ $"version {Dates.iso effective} derives from an earlier version, but there is none" ]
-                                        | Some prior ->
-                                            Ok(
-                                                previous
-                                                @ [ { Effective = effective
-                                                      Label = label
-                                                      Table = Table.scale factor places prior.Table } ]
-                                            )))
-                            (Ok [])
+                                         Table.build
+                                             name
+                                             dims
+                                             (rows |> List.map (fun (k, v) -> { Keys = k; Value = v }))
+                                         |> Result.mapError (
+                                             List.map (fun e -> $"version {Dates.iso effective}: {e}")
+                                         )
+                                         |> Result.map (fun t ->
+                                             previous
+                                             @ [ { Effective = effective
+                                                   Label = label
+                                                   Table = t } ])
+                                     | Derived(effective, label, factor, places) ->
+                                         match List.tryLast previous with
+                                         | None ->
+                                             Error
+                                                 [ $"version {Dates.iso effective} derives from an earlier version, but there is none" ]
+                                         | Some prior ->
+                                             Ok(
+                                                 previous
+                                                 @ [ { Effective = effective
+                                                       Label = label
+                                                       Table = Table.scale factor places prior.Table } ]
+                                             )))
+                             (Ok [])
 
-                    built
-                    |> Result.bind (fun versions ->
-                        VersionedTable.create name description versions
-                        |> Result.mapError (List.map string))
-                    |> Result.mapError (String.joinWith "; "))))
+                     built
+                     |> Result.bind (fun versions ->
+                         VersionedTable.create name description versions
+                         |> Result.mapError (List.map string))
+                     |> Result.mapError (String.joinWith "; "))))
 
     let product: Decoder<Product> =
         Decode.strictObject

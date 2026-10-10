@@ -136,14 +136,16 @@ type Money =
 [<RequireQualifiedAccess>]
 module Money =
 
-    let create currency amount = { Amount = amount; Currency = currency }
+    let create currency amount =
+        { Amount = amount; Currency = currency }
 
     let zero currency = create currency 0m
 
     let amount (m: Money) = m.Amount
 
     let round mode places (m: Money) =
-        { m with Amount = Decimal.round mode places m.Amount }
+        { m with
+            Amount = Decimal.round mode places m.Amount }
 
     let sum currency (items: Money seq) = Seq.fold (+) (zero currency) items
 

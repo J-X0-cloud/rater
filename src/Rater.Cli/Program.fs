@@ -138,7 +138,9 @@ let tables (args: string list) =
             plan.Product.Tables
             |> List.map (fun t ->
                 let dims =
-                    VersionedTable.dimensions t |> List.map (fun d -> d.Name) |> String.joinWith " x "
+                    VersionedTable.dimensions t
+                    |> List.map (fun d -> d.Name)
+                    |> String.joinWith " x "
 
                 let versions =
                     t.Versions |> List.map (fun v -> Dates.iso v.Effective) |> String.joinWith ", "
@@ -204,7 +206,14 @@ let impact (args: string list) =
             |> List.map (fun (i, o) ->
                 match o with
                 | Some(b, a) ->
-                    let change = if b = 0m then "" else ((a - b) / b * 100m).ToString("+0.00;-0.00;0.00", Globalization.CultureInfo.InvariantCulture) + "%"
+                    let change =
+                        if b = 0m then
+                            ""
+                        else
+                            ((a - b) / b * 100m)
+                                .ToString("+0.00;-0.00;0.00", Globalization.CultureInfo.InvariantCulture)
+                            + "%"
+
                     [ string i; Render.money b; Render.money a; change ]
                 | None -> [ string i; "error"; "error"; "" ])
 
@@ -216,7 +225,9 @@ let impact (args: string list) =
             let b = rated |> List.sumBy fst
             let a = rated |> List.sumBy snd
             let pct = if b = 0m then 0m else (a - b) / b * 100m
-            let shown = pct.ToString("+0.00;-0.00;0.00", Globalization.CultureInfo.InvariantCulture)
+
+            let shown =
+                pct.ToString("+0.00;-0.00;0.00", Globalization.CultureInfo.InvariantCulture)
 
             printfn $"\nBook of {rated.Length} risk(s): {Render.money b} -> {Render.money a} ({shown}%%)"
 
@@ -242,12 +253,18 @@ let bench (args: string list) =
                 ProductCodec.load productJson |> ignore)
 
         let rating =
-            Bench.measure "rate one request (full worksheet)" iterations (fun () -> Rating.rate plan request |> ignore)
+            Bench.measure "rate one request (full worksheet)" iterations (fun () ->
+                Rating.rate plan request |> ignore)
 
         let deps =
             { Rate = fun _ r -> Rating.rate plan r
               ValidityDays = fun _ -> plan.Product.QuoteValidityDays
-              Now = fun () -> DateTimeOffset(request.EffectiveDate.AddDays(-7).ToDateTime(TimeOnly.MinValue), TimeSpan.Zero)
+              Now =
+                fun () ->
+                    DateTimeOffset(
+                        request.EffectiveDate.AddDays(-7).ToDateTime(TimeOnly.MinValue),
+                        TimeSpan.Zero
+                    )
               NextPolicyNumber = fun _ -> "BENCH" }
 
         let mutable n = 0

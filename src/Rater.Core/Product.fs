@@ -5,36 +5,42 @@ open Rater.Dsl
 
 /// One rating characteristic of a risk, such as construction type or year built.
 type AttributeDef =
-    { Name: string
-      Type: DataType
-      Description: string option
-      Required: bool
-      Default: Value option
-      /// For text and number attributes: the closed set of acceptable values.
-      Allowed: Value list option
-      Min: decimal option
-      Max: decimal option
-      Integer: bool }
+    {
+        Name: string
+        Type: DataType
+        Description: string option
+        Required: bool
+        Default: Value option
+        /// For text and number attributes: the closed set of acceptable values.
+        Allowed: Value list option
+        Min: decimal option
+        Max: decimal option
+        Integer: bool
+    }
 
 /// Limits a coverage may be written at.
 type LimitRule =
-    { Min: decimal
-      Max: decimal
-      /// Limits must be a whole multiple of this increment, when present.
-      Increment: decimal option
-      Default: decimal option }
+    {
+        Min: decimal
+        Max: decimal
+        /// Limits must be a whole multiple of this increment, when present.
+        Increment: decimal option
+        Default: decimal option
+    }
 
 type CoverageDef =
-    { Code: string
-      Name: string
-      Required: bool
-      Limit: LimitRule
-      Deductibles: decimal list
-      DefaultDeductible: decimal option
-      /// Coverages that must also be on the quote; `premium.X` references add to this implicitly.
-      Requires: string list
-      MinimumPremium: decimal
-      Algorithm: Algorithm }
+    {
+        Code: string
+        Name: string
+        Required: bool
+        Limit: LimitRule
+        Deductibles: decimal list
+        DefaultDeductible: decimal option
+        /// Coverages that must also be on the quote; `premium.X` references add to this implicitly.
+        Requires: string list
+        MinimumPremium: decimal
+        Algorithm: Algorithm
+    }
 
 type UnderwritingAction =
     | Refer
@@ -53,39 +59,45 @@ type Fee =
       Amount: decimal }
 
 type Tax =
-    { Code: string
-      Name: string
-      Rate: decimal
-      /// Whether the tax is levied on policy fees as well as premium.
-      IncludesFees: bool }
+    {
+        Code: string
+        Name: string
+        Rate: decimal
+        /// Whether the tax is levied on policy fees as well as premium.
+        IncludesFees: bool
+    }
 
 type PremiumRules =
-    { Rounding: RoundingMode
-      /// Decimal places for coverage and policy premiums (0 rounds to whole currency units).
-      Places: int
-      PolicyMinimum: decimal
-      /// Days in the annual basis used to pro-rate short and long terms.
-      AnnualBasisDays: int
-      MinimumTermDays: int
-      MaximumTermDays: int }
+    {
+        Rounding: RoundingMode
+        /// Decimal places for coverage and policy premiums (0 rounds to whole currency units).
+        Places: int
+        PolicyMinimum: decimal
+        /// Days in the annual basis used to pro-rate short and long terms.
+        AnnualBasisDays: int
+        MinimumTermDays: int
+        MaximumTermDays: int
+    }
 
 type Product =
-    { Code: string
-      Name: string
-      Currency: string
-      Description: string option
-      /// First policy effective date the product may be written for.
-      Available: DateOnly
-      /// Last effective date for new business, if the product has been withdrawn.
-      Withdrawn: DateOnly option
-      QuoteValidityDays: int
-      Attributes: AttributeDef list
-      Coverages: CoverageDef list
-      Tables: VersionedTable list
-      Rules: UnderwritingRule list
-      Fees: Fee list
-      Taxes: Tax list
-      Premium: PremiumRules }
+    {
+        Code: string
+        Name: string
+        Currency: string
+        Description: string option
+        /// First policy effective date the product may be written for.
+        Available: DateOnly
+        /// Last effective date for new business, if the product has been withdrawn.
+        Withdrawn: DateOnly option
+        QuoteValidityDays: int
+        Attributes: AttributeDef list
+        Coverages: CoverageDef list
+        Tables: VersionedTable list
+        Rules: UnderwritingRule list
+        Fees: Fee list
+        Taxes: Tax list
+        Premium: PremiumRules
+    }
 
 /// A problem with a product definition, located as precisely as the source allows.
 type ProductIssue =
@@ -134,7 +146,10 @@ module Product =
 
     /// Kahn's algorithm over the "rated after" relation. Ties are broken by declaration order so
     /// that worksheets list coverages the way the product author wrote them.
-    let topologicalOrder (codes: string list) (deps: Map<string, Set<string>>) : Result<string list, string list> =
+    let topologicalOrder
+        (codes: string list)
+        (deps: Map<string, Set<string>>)
+        : Result<string list, string list> =
         let index = codes |> List.mapi (fun i c -> c, i) |> Map.ofList
 
         let rec go (ordered: string list) (remaining: Set<string>) =
@@ -261,7 +276,9 @@ module Product =
         let codeSet = Set.ofList codes
 
         let tables =
-            p.Tables |> List.map (fun t -> t.Name, VersionedTable.dimensions t) |> Map.ofList
+            p.Tables
+            |> List.map (fun t -> t.Name, VersionedTable.dimensions t)
+            |> Map.ofList
 
         let attributes = p.Attributes |> List.map (fun a -> a.Name, a.Type) |> Map.ofList
 

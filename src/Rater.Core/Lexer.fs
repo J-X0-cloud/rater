@@ -116,7 +116,13 @@ module Lexer =
                     let text = sb.ToString()
 
                     let value =
-                        match Decimal.TryParse(text, NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture) with
+                        match
+                            Decimal.TryParse(
+                                text,
+                                NumberStyles.AllowDecimalPoint,
+                                CultureInfo.InvariantCulture
+                            )
+                        with
                         | true, v -> v
                         | _ -> fail pos $"invalid number '{text}'"
 
@@ -193,7 +199,12 @@ module Lexer =
 
                     let word = source.Substring(start, i - start)
 
-                    emit pos (if keywords.Contains word then TokKeyword word else TokIdent word)
+                    emit
+                        pos
+                        (if keywords.Contains word then
+                             TokKeyword word
+                         else
+                             TokIdent word)
                 else
                     let two = if i + 1 < source.Length then source.Substring(i, 2) else ""
 
@@ -202,7 +213,10 @@ module Lexer =
                         advance ()
                         advance ()
                         emit pos TokAssign
-                    | "==" | "!=" | "<=" | ">=" ->
+                    | "=="
+                    | "!="
+                    | "<="
+                    | ">=" ->
                         advance ()
                         advance ()
                         emit pos (TokOp two)
@@ -215,7 +229,12 @@ module Lexer =
                         | ',' -> emit pos TokComma
                         | '.' -> emit pos TokDot
                         | ';' -> emit pos TokSemicolon
-                        | '+' | '-' | '*' | '/' | '<' | '>' -> emit pos (TokOp(string c))
+                        | '+'
+                        | '-'
+                        | '*'
+                        | '/'
+                        | '<'
+                        | '>' -> emit pos (TokOp(string c))
                         | '=' -> fail pos "use ':=' to define a step and '==' to compare"
                         | other -> fail pos $"unexpected character '{other}'"
 

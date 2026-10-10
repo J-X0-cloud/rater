@@ -128,7 +128,8 @@ module Expr =
         | Unary(_, x) -> tables x
         | Binary(_, l, r) -> tables l @ tables r
         | If(branches, otherwise) ->
-            (branches |> List.collect (fun (c, v) -> tables c @ tables v)) @ tables otherwise
+            (branches |> List.collect (fun (c, v) -> tables c @ tables v))
+            @ tables otherwise
         | In(x, set) -> tables x @ (set |> List.collect tables)
 
     /// Number of nodes; used to bound generated trees in property tests and to report complexity.

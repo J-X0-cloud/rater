@@ -18,13 +18,19 @@ let start = DateTimeOffset(2026, 2, 1, 9, 0, 0, TimeSpan.Zero)
 let baseRequest = lazy (request (readExample "ho3-request.json"))
 
 let referredRequest =
-    lazy { baseRequest.Value with Risk = baseRequest.Value.Risk.Add("roof_age", RawNumber 30m) }
+    lazy
+        { baseRequest.Value with
+            Risk = baseRequest.Value.Risk.Add("roof_age", RawNumber 30m) }
 
 let declinedRequest =
-    lazy { baseRequest.Value with Risk = baseRequest.Value.Risk.Add("prior_claims", RawNumber 6m) }
+    lazy
+        { baseRequest.Value with
+            Risk = baseRequest.Value.Risk.Add("prior_claims", RawNumber 6m) }
 
 let invalidRequest =
-    lazy { baseRequest.Value with Coverages = [] }
+    lazy
+        { baseRequest.Value with
+            Coverages = [] }
 
 let makeDeps (clock: TestClock) =
     let mutable n = 0
@@ -60,7 +66,12 @@ let tests =
               Expect.equal q.Status Bound "bound"
               Expect.equal q.PolicyNumber (Some "HO3-1") "policy number"
               Expect.equal q.Version 3 "three events"
-              Expect.equal (events |> List.map (fun e -> e.Name)) [ "created"; "rated"; "bound" ] "event names"
+
+              Expect.equal
+                  (events |> List.map (fun e -> e.Name))
+                  [ "created"; "rated"; "bound" ]
+                  "event names"
+
               Expect.equal q.ValidUntil (Some(DateOnly(2026, 3, 3))) "valid for 30 days"
           }
 
@@ -68,13 +79,23 @@ let tests =
               let deps = makeDeps (TestClock start)
               let state, _ = runAll deps [ create referredRequest.Value; Rate ]
               Expect.equal state.Value.Status Referred "referred"
-              Expect.equal (state.Value.OpenReferrals |> List.map (fun f -> f.RuleId)) [ "UW-ROOF" ] "open referral"
+
+              Expect.equal
+                  (state.Value.OpenReferrals |> List.map (fun f -> f.RuleId))
+                  [ "UW-ROOF" ]
+                  "open referral"
 
               match Quote.decide deps state Bind with
               | Error(InvalidTransition("bind", "referred")) -> ()
               | other -> failtestf "unexpected %A" other
 
-              let approved, _ = runAll deps [ create referredRequest.Value; Rate; ApproveReferral("UW-ROOF", "dana", "inspection on file") ]
+              let approved, _ =
+                  runAll
+                      deps
+                      [ create referredRequest.Value
+                        Rate
+                        ApproveReferral("UW-ROOF", "dana", "inspection on file") ]
+
               Expect.equal approved.Value.Status Quoted "quoted after approval"
               Expect.equal approved.Value.Approvals.Head.Underwriter "dana" "approval recorded"
           }
@@ -108,7 +129,14 @@ let tests =
 
           test "an underwriter decline is final" {
               let deps = makeDeps (TestClock start)
-              let state, _ = runAll deps [ create referredRequest.Value; Rate; QuoteCommand.Decline("dana", "roof condition") ]
+
+              let state, _ =
+                  runAll
+                      deps
+                      [ create referredRequest.Value
+                        Rate
+                        QuoteCommand.Decline("dana", "roof condition") ]
+
               Expect.equal state.Value.Status (Declined(ByUnderwriter "dana")) "declined"
               Expect.isError (Quote.decide deps state (Amend baseRequest.Value)) "cannot amend"
           }
@@ -118,7 +146,13 @@ let tests =
               let state, _ = runAll deps [ create invalidRequest.Value ]
 
               match Quote.decide deps state Rate with
-              | Error(RatingFailed issues) -> Expect.exists issues (function MissingRequiredCoverage _ -> true | _ -> false) "issues"
+              | Error(RatingFailed issues) ->
+                  Expect.exists
+                      issues
+                      (function
+                      | MissingRequiredCoverage _ -> true
+                      | _ -> false)
+                      "issues"
               | other -> failtestf "unexpected %A" other
           }
 
@@ -133,28 +167,47 @@ let tests =
               | Error(QuoteHasExpired _) -> ()
               | other -> failtestf "unexpected %A" other
 
-              let expired = Quote.decide deps state Expire |> expectOk |> List.fold (fun s e -> Some(Quote.evolve s e)) state
+              let expired =
+                  Quote.decide deps state Expire
+                  |> expectOk
+                  |> List.fold (fun s e -> Some(Quote.evolve s e)) state
+
               Expect.equal expired.Value.Status Expired "expired"
           }
 
           test "binding a policy effective in the past is refused" {
               let clock = TestClock start
               let deps = makeDeps clock
-              let r = { baseRequest.Value with EffectiveDate = DateOnly(2026, 2, 10) }
+
+              let r =
+                  { baseRequest.Value with
+                      EffectiveDate = DateOnly(2026, 2, 10) }
+
               let state, _ = runAll deps [ create r; Rate ]
               clock.Advance(TimeSpan.FromDays 10.0)
-              Expect.equal (Quote.decide deps state Bind) (Error(EffectiveDateInPast r.EffectiveDate)) "backdated"
+
+              Expect.equal
+                  (Quote.decide deps state Bind)
+                  (Error(EffectiveDateInPast r.EffectiveDate))
+                  "backdated"
           }
 
           test "create is rejected for an existing quote and other commands need one" {
               let deps = makeDeps (TestClock start)
               let state, _ = runAll deps [ create baseRequest.Value ]
-              Expect.equal (Quote.decide deps state (create baseRequest.Value)) (Error(QuoteAlreadyExists "q-1")) "exists"
+
+              Expect.equal
+                  (Quote.decide deps state (create baseRequest.Value))
+                  (Error(QuoteAlreadyExists "q-1"))
+                  "exists"
+
               Expect.isError (Quote.decide deps None Rate) "no quote"
           }
 
           test "evolve rejects malformed histories" {
-              Expect.throws (fun () -> Quote.evolve None (QuoteExpired start) |> ignore) "must start with created"
+              Expect.throws
+                  (fun () -> Quote.evolve None (QuoteExpired start) |> ignore)
+                  "must start with created"
           }
 
           testPropertyWithConfig quickConfig "replaying the events always rebuilds the same quote"
@@ -181,7 +234,9 @@ let tests =
                   | 7 -> Bind
                   | _ -> Expire
 
-              let mutable state = Some(Quote.evolve None (Created("q", "HO3", baseRequest.Value, clock.Now())))
+              let mutable state =
+                  Some(Quote.evolve None (Created("q", "HO3", baseRequest.Value, clock.Now())))
+
               let mutable events = [ Created("q", "HO3", baseRequest.Value, clock.Now()) ]
               let mutable ok = true
 
@@ -191,7 +246,9 @@ let tests =
 
                   match Quote.decide deps state (commandFor kind state) with
                   | Ok es ->
-                      if before.Status.IsTerminal then ok <- false
+                      if before.Status.IsTerminal then
+                          ok <- false
+
                       events <- events @ es
                       state <- es |> List.fold (fun s e -> Some(Quote.evolve s e)) state
                   | Error _ -> ()
@@ -248,5 +305,9 @@ let tests =
               let! expired = store.ExpireStale()
               Expect.equal (List.sort expired) [ "a"; "b" ] "only quoted quotes expire"
               let! all = store.List()
-              Expect.equal (all |> List.map (fun q -> q.Status.Name) |> List.sort) [ "draft"; "expired"; "expired" ] "statuses"
+
+              Expect.equal
+                  (all |> List.map (fun q -> q.Status.Name) |> List.sort)
+                  [ "draft"; "expired"; "expired" ]
+                  "statuses"
           } ]

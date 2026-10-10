@@ -162,14 +162,20 @@ module Dates =
         else
             let years = toDate.Year - fromDate.Year
 
-            if fromDate.AddYears(years) > toDate then years - 1 else years
+            if fromDate.AddYears(years) > toDate then
+                years - 1
+            else
+                years
 
     let daysBetween (fromDate: DateOnly) (toDate: DateOnly) = toDate.DayNumber - fromDate.DayNumber
 
     /// Whole months between two dates, using the same anniversary rule as `yearsBetween`.
     let monthsBetween (fromDate: DateOnly) (toDate: DateOnly) =
         let sign, a, b =
-            if toDate < fromDate then -1, toDate, fromDate else 1, fromDate, toDate
+            if toDate < fromDate then
+                -1, toDate, fromDate
+            else
+                1, fromDate, toDate
 
         let mutable months = (b.Year - a.Year) * 12 + b.Month - a.Month
 

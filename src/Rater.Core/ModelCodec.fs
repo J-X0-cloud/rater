@@ -190,7 +190,8 @@ module ModelCodec =
                 [ "rule", Encode.string a.RuleId
                   "underwriter", Encode.string a.Underwriter
                   "note", Encode.string a.Note ]
-            | DeclinedByUnderwriter(u, reason, _) -> [ "underwriter", Encode.string u; "reason", Encode.string reason ]
+            | DeclinedByUnderwriter(u, reason, _) ->
+                [ "underwriter", Encode.string u; "reason", Encode.string reason ]
             | PolicyBound(number, _) -> [ "policyNumber", Encode.string number ]
             | QuoteExpired _ -> []
 
@@ -258,7 +259,8 @@ module ModelCodec =
                         |> Seq.map Encode.string
                         |> Encode.list
                         "minimumPremium", Encode.decimal c.MinimumPremium
-                        "algorithm", c.Algorithm.Steps |> List.map (Printer.step >> Encode.string) |> Encode.list ])
+                        "algorithm",
+                        c.Algorithm.Steps |> List.map (Printer.step >> Encode.string) |> Encode.list ])
               |> Encode.list
               "tables",
               p.Tables
@@ -269,7 +271,9 @@ module ModelCodec =
                         "dimensions",
                         VersionedTable.dimensions t
                         |> List.map (fun d ->
-                            Encode.object [ "name", Encode.string d.Name; "kind", Encode.string (dimensionKind d.Kind) ])
+                            Encode.object
+                                [ "name", Encode.string d.Name
+                                  "kind", Encode.string (dimensionKind d.Kind) ])
                         |> Encode.list
                         "versions",
                         t.Versions

@@ -22,12 +22,14 @@ type Diagnostic =
 
 /// Everything an expression may refer to, other than its own algorithm's steps.
 type TypeEnv =
-    { Attributes: Map<string, DataType>
-      /// `coverage.*` is only meaningful while rating a coverage, not in underwriting rules.
-      AllowCoverage: bool
-      /// Coverage codes whose final premium may be referenced as `premium.CODE`.
-      PremiumRefs: Set<string>
-      Tables: Map<string, Dimension list> }
+    {
+        Attributes: Map<string, DataType>
+        /// `coverage.*` is only meaningful while rating a coverage, not in underwriting rules.
+        AllowCoverage: bool
+        /// Coverage codes whose final premium may be referenced as `premium.CODE`.
+        PremiumRefs: Set<string>
+        Tables: Map<string, Dimension list>
+    }
 
 type CheckedAlgorithm =
     { StepTypes: Map<string, DataType>
@@ -37,7 +39,8 @@ type CheckedAlgorithm =
 module TypeCheck =
 
     /// Fields available under `coverage.` and `policy.`.
-    let coverageFields = Map.ofList [ "limit", TNumber; "deductible", TNumber; "code", TText ]
+    let coverageFields =
+        Map.ofList [ "limit", TNumber; "deductible", TNumber; "code", TText ]
 
     let policyFields =
         Map.ofList
@@ -116,14 +119,21 @@ module TypeCheck =
                 | None -> this.Unknown(e.Pos, "table", table, env.Tables.Keys)
                 | Some dims when dims.Length <> args.Length ->
                     let names = dims |> List.map (fun d -> d.Name) |> String.joinWith ", "
-                    this.Fail(e.Pos, $"table '{table}' takes {dims.Length} argument(s) ({names}) but was given {args.Length}")
+
+                    this.Fail(
+                        e.Pos,
+                        $"table '{table}' takes {dims.Length} argument(s) ({names}) but was given {args.Length}"
+                    )
                 | Some dims ->
                     let mismatches =
                         List.zip3 dims args argTypes
                         |> List.choose (fun (d, a, t) ->
                             match t with
                             | Some t when t <> d.ArgumentType ->
-                                Some(a.Pos, $"table '{table}' dimension '{d.Name}' expects a {d.ArgumentType} but was given a {t}")
+                                Some(
+                                    a.Pos,
+                                    $"table '{table}' dimension '{d.Name}' expects a {d.ArgumentType} but was given a {t}"
+                                )
                             | _ -> None)
 
                     mismatches |> List.iter (fun (p, m) -> this.Fail(p, m) |> ignore)
@@ -165,21 +175,24 @@ module TypeCheck =
                         match check c with
                         | Some TBool
                         | None -> ()
-                        | Some t -> this.Fail(c.Pos, $"an 'if' condition must be a bool but is a {t}") |> ignore
+                        | Some t ->
+                            this.Fail(c.Pos, $"an 'if' condition must be a bool but is a {t}") |> ignore
 
                         v, check v)
 
                 let all = branchTypes @ [ otherwise, check otherwise ]
 
-                let known =
-                    all |> List.choose (fun (x, t) -> t |> Option.map (fun t -> x, t))
+                let known = all |> List.choose (fun (x, t) -> t |> Option.map (fun t -> x, t))
 
                 match known with
                 | [] -> None
                 | (_, first) :: rest ->
                     match rest |> List.tryFind (fun (_, t) -> t <> first) with
                     | Some(x, t) ->
-                        this.Fail(x.Pos, $"'if' branches must agree: this branch is a {t} but an earlier one is a {first}")
+                        this.Fail(
+                            x.Pos,
+                            $"'if' branches must agree: this branch is a {t} but an earlier one is a {first}"
+                        )
                     | None when known.Length = all.Length -> Some first
                     | None -> None
             | In(x, items) ->
@@ -245,7 +258,9 @@ module TypeCheck =
     let expression (env: TypeEnv) (e: Expr) : Result<DataType * Diagnostic list, Diagnostic list> =
         let diags = ResizeArray()
         let t = Checker(env, diags).Check(e, Map.empty)
-        let errors, warnings = diags |> List.ofSeq |> List.partition (fun d -> d.Severity = Severity.Error)
+
+        let errors, warnings =
+            diags |> List.ofSeq |> List.partition (fun d -> d.Severity = Severity.Error)
 
         match t with
         | Some t when errors.IsEmpty -> Ok(t, warnings)
@@ -261,15 +276,23 @@ module TypeCheck =
             |> List.fold
                 (fun (types: Map<string, DataType>) step ->
                     if reservedNames.Contains step.Name && step.Name <> "premium" then
-                        checker.Fail(step.Pos, $"'{step.Name}' is reserved and cannot be used as a step name")
+                        checker.Fail(
+                            step.Pos,
+                            $"'{step.Name}' is reserved and cannot be used as a step name"
+                        )
                         |> ignore
 
                         types
                     elif types.ContainsKey step.Name then
-                        checker.Fail(step.Pos, $"step '{step.Name}' is defined more than once") |> ignore
+                        checker.Fail(step.Pos, $"step '{step.Name}' is defined more than once")
+                        |> ignore
+
                         types
                     elif Builtins.tryFind step.Name |> Option.isSome then
-                        checker.Fail(step.Pos, $"'{step.Name}' is a built-in function and cannot be used as a step name")
+                        checker.Fail(
+                            step.Pos,
+                            $"'{step.Name}' is a built-in function and cannot be used as a step name"
+                        )
                         |> ignore
 
                         types
@@ -280,19 +303,20 @@ module TypeCheck =
                 Map.empty
 
         match a.Steps |> List.tryFindIndex (fun s -> s.Name = "premium") with
-        | None ->
-            checker.Fail(Pos.Start, "the algorithm must define a 'premium' step") |> ignore
+        | None -> checker.Fail(Pos.Start, "the algorithm must define a 'premium' step") |> ignore
         | Some i ->
             let premiumStep = a.Steps[i]
 
             match steps.TryFind "premium" with
             | Some t when t <> TNumber ->
-                checker.Fail(premiumStep.Pos, $"'premium' must be a number but is a {t}") |> ignore
+                checker.Fail(premiumStep.Pos, $"'premium' must be a number but is a {t}")
+                |> ignore
             | _ -> ()
 
             a.Steps
             |> List.skip (i + 1)
-            |> List.iter (fun s -> checker.Warn(s.Pos, $"step '{s.Name}' comes after 'premium' and has no effect"))
+            |> List.iter (fun s ->
+                checker.Warn(s.Pos, $"step '{s.Name}' comes after 'premium' and has no effect"))
 
         let used =
             a.Steps

@@ -20,7 +20,8 @@ let json (status: int) (node: JsonNode) : HttpHandler =
     >=> setHttpHeader "Content-Type" "application/json; charset=utf-8"
     >=> setBodyFromString (Encode.toCompactString node)
 
-let errors (status: int) (messages: string list) = json status (ModelCodec.encodeErrors messages)
+let errors (status: int) (messages: string list) =
+    json status (ModelCodec.encodeErrors messages)
 
 let private notFound what = errors 404 [ $"{what} not found" ]
 
@@ -94,16 +95,26 @@ let getTable (code: string, tableName: string) : HttpHandler =
             | None, _ -> notFound $"table '{tableName}'" next ctx
             | _, Error e -> errors 400 [ e ] next ctx
             | Some t, Ok date ->
-                let date = date |> Option.defaultWith (fun () -> DateOnly.FromDateTime((ctx.GetService<Env>().Clock()).UtcDateTime))
+                let date =
+                    date
+                    |> Option.defaultWith (fun () ->
+                        DateOnly.FromDateTime((ctx.GetService<Env>().Clock()).UtcDateTime))
 
                 match VersionedTable.versionAt date t with
-                | None -> errors 404 [ $"table '{tableName}' has no version in force on {Dates.iso date}" ] next ctx
+                | None ->
+                    errors
+                        404
+                        [ $"table '{tableName}' has no version in force on {Dates.iso date}" ]
+                        next
+                        ctx
                 | Some v ->
                     let node =
                         Encode.object
                             [ "table", Encode.string t.Name
                               "dimensions",
-                              VersionedTable.dimensions t |> List.map (fun d -> Encode.string d.Name) |> Encode.list
+                              VersionedTable.dimensions t
+                              |> List.map (fun d -> Encode.string d.Name)
+                              |> Encode.list
                               "version", ModelCodec.encodeTableVersion v ]
 
                     json 200 node next ctx)
@@ -284,7 +295,13 @@ let expireStale: HttpHandler =
         task {
             let env = ctx.GetService<Env>()
             let! expired = env.Store.ExpireStale()
-            return! json 200 (Encode.object [ "expired", expired |> List.map Encode.string |> Encode.list ]) next ctx
+
+            return!
+                json
+                    200
+                    (Encode.object [ "expired", expired |> List.map Encode.string |> Encode.list ])
+                    next
+                    ctx
         }
 
 let unhandled (ex: Exception) (logger: Microsoft.Extensions.Logging.ILogger) : HttpHandler =

@@ -26,7 +26,11 @@ let tests =
         [ test "numbers accept separators and percent" {
               Expect.equal (tokens "1_000_000") [ TokNumber 1000000m; TokEnd ] "separators"
               Expect.equal (tokens "7.5%") [ TokNumber 0.075m; TokEnd ] "percent"
-              Expect.equal (tokens "3.") [ TokNumber 3m; TokDot; TokEnd ] "trailing dot is not part of the number"
+
+              Expect.equal
+                  (tokens "3.")
+                  [ TokNumber 3m; TokDot; TokEnd ]
+                  "trailing dot is not part of the number"
           }
 
           test "strings, dates, tables and comments" {
@@ -51,13 +55,9 @@ let tests =
               Expect.stringContains e.Message "':='" "suggests :="
           }
 
-          test "a number may not run into a name" {
-              Expect.isError (Lexer.tokenize "12abc") "12abc"
-          }
+          test "a number may not run into a name" { Expect.isError (Lexer.tokenize "12abc") "12abc" }
 
-          test "invalid dates are rejected" {
-              Expect.isError (Lexer.tokenize "@2026-02-30") "30 February"
-          }
+          test "invalid dates are rejected" { Expect.isError (Lexer.tokenize "@2026-02-30") "30 February" }
 
           test "multiplication binds tighter than addition" {
               Expect.equal (parseExpr "1 + 2 * 3") (bin Add (n 1m) (bin Mul (n 2m) (n 3m))) "precedence"

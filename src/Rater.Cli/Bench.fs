@@ -47,6 +47,7 @@ let report (ms: Measurement list) =
               string m.Iterations
               m.MicrosecondsPerOp.ToString("0.0", Globalization.CultureInfo.InvariantCulture)
               m.OpsPerSecond.ToString("#,##0", Globalization.CultureInfo.InvariantCulture)
-              (m.BytesPerOp / 1024.0).ToString("0.0", Globalization.CultureInfo.InvariantCulture) ])
+              (m.BytesPerOp / 1024.0)
+                  .ToString("0.0", Globalization.CultureInfo.InvariantCulture) ])
 
     Render.table [ "Benchmark"; "Iterations"; "us/op"; "ops/s"; "KiB/op" ] rows

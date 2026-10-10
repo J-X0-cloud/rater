@@ -33,12 +33,16 @@ module Catalog =
             | Error errs -> Error errs
             | Ok [] -> Error [ $"no products found in '{dir}'" ]
             | Ok plans ->
-                let map, dups = Map.ofListWithDuplicates (fun (p: RatingPlan) -> p.Product.Code) plans
+                let map, dups =
+                    Map.ofListWithDuplicates (fun (p: RatingPlan) -> p.Product.Code) plans
 
                 if dups.IsEmpty then
                     Ok { Plans = map }
                 else
-                    Error(dups |> List.map (fun d -> $"product code '{d}' is defined in more than one file"))
+                    Error(
+                        dups
+                        |> List.map (fun d -> $"product code '{d}' is defined in more than one file")
+                    )
 
     let ofPlans (plans: RatingPlan list) =
         { Plans = plans |> List.map (fun p -> p.Product.Code, p) |> Map.ofList }

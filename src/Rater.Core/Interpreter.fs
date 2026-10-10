@@ -312,4 +312,7 @@ module Interpreter =
             try
                 Ok(code (Frame(ctx, [||])))
             with EvalException(msg, pos) ->
-                Error { Message = msg; Pos = pos; Step = None }
+                Error
+                    { Message = msg
+                      Pos = pos
+                      Step = None }

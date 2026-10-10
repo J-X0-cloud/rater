@@ -28,6 +28,7 @@ let withServer (f: HttpClient -> Async<unit>) =
             App.build settings (fun b ->
                 b.WebHost.UseTestServer() |> ignore
                 b.Logging.SetMinimumLevel(LogLevel.Warning) |> ignore)
+
         do! app.StartAsync() |> Async.AwaitTask
 
         try
@@ -35,10 +36,19 @@ let withServer (f: HttpClient -> Async<unit>) =
             do! f client
         finally
             app.StopAsync() |> Async.AwaitTask |> Async.RunSynchronously
-            (app :> IAsyncDisposable).DisposeAsync().AsTask() |> Async.AwaitTask |> Async.RunSynchronously
+
+            (app :> IAsyncDisposable).DisposeAsync().AsTask()
+            |> Async.AwaitTask
+            |> Async.RunSynchronously
     }
 
-let send (client: HttpClient) (method: HttpMethod) (path: string) (body: string option) (headers: (string * string) list) =
+let send
+    (client: HttpClient)
+    (method: HttpMethod)
+    (path: string)
+    (body: string option)
+    (headers: (string * string) list)
+    =
     async {
         use req = new HttpRequestMessage(method, path)
 
@@ -50,12 +60,20 @@ let send (client: HttpClient) (method: HttpMethod) (path: string) (body: string 
 
         let! resp = client.SendAsync req |> Async.AwaitTask
         let! text = resp.Content.ReadAsStringAsync() |> Async.AwaitTask
-        let doc = if String.IsNullOrEmpty text then None else Some(JsonDocument.Parse(text).RootElement.Clone())
+
+        let doc =
+            if String.IsNullOrEmpty text then
+                None
+            else
+                Some(JsonDocument.Parse(text).RootElement.Clone())
+
         return resp, doc
     }
 
 let get client path = send client HttpMethod.Get path None []
-let post client path body = send client HttpMethod.Post path body []
+
+let post client path body =
+    send client HttpMethod.Post path body []
 
 let prop (name: string) (e: JsonElement option) = e.Value.GetProperty name
 
@@ -104,15 +122,32 @@ let tests =
               do!
                   withServer (fun client ->
                       async {
-                          let! resp, body = post client "/products/HO3/rate" (Some """{ "effectiveDate": "2026-13-01" }""")
-                          Expect.equal resp.StatusCode HttpStatusCode.BadRequest "bad json shape"
-                          let errors = (prop "errors" body).EnumerateArray() |> Seq.map (fun e -> e.GetString()) |> List.ofSeq
-                          Expect.exists errors (fun e -> e.Contains "effectiveDate") "date error"
-                          Expect.exists errors (fun e -> e.Contains "missing required field 'risk'") "missing risk"
+                          let! resp, body =
+                              post client "/products/HO3/rate" (Some """{ "effectiveDate": "2026-13-01" }""")
 
-                          let unratable = hoBody.Value.Replace("\"territory\": \"03\"", "\"territory\": \"99\"")
+                          Expect.equal resp.StatusCode HttpStatusCode.BadRequest "bad json shape"
+
+                          let errors =
+                              (prop "errors" body).EnumerateArray()
+                              |> Seq.map (fun e -> e.GetString())
+                              |> List.ofSeq
+
+                          Expect.exists errors (fun e -> e.Contains "effectiveDate") "date error"
+
+                          Expect.exists
+                              errors
+                              (fun e -> e.Contains "missing required field 'risk'")
+                              "missing risk"
+
+                          let unratable =
+                              hoBody.Value.Replace("\"territory\": \"03\"", "\"territory\": \"99\"")
+
                           let! resp, _ = post client "/products/HO3/rate" (Some unratable)
-                          Expect.equal resp.StatusCode HttpStatusCode.UnprocessableEntity "valid shape, invalid risk"
+
+                          Expect.equal
+                              resp.StatusCode
+                              HttpStatusCode.UnprocessableEntity
+                              "valid shape, invalid risk"
                       })
           }
 
@@ -122,9 +157,15 @@ let tests =
                       async {
                           let! resp, body = get client "/products/HO3/tables/base_rate?date=2025-06-01"
                           Expect.equal resp.StatusCode HttpStatusCode.OK "table"
-                          Expect.equal ((prop "version" body).GetProperty("effective").GetString()) "2025-01-01" "version"
 
-                          let! resp, body = get client "/products/HO3/tables/base_rate/diff?from=2025-06-01&to=2026-06-01"
+                          Expect.equal
+                              ((prop "version" body).GetProperty("effective").GetString())
+                              "2025-01-01"
+                              "version"
+
+                          let! resp, body =
+                              get client "/products/HO3/tables/base_rate/diff?from=2025-06-01&to=2026-06-01"
+
                           Expect.equal resp.StatusCode HttpStatusCode.OK "diff"
                           Expect.equal ((prop "changed" body).GetArrayLength()) 15 "every cell moved"
 
@@ -147,12 +188,20 @@ let tests =
                           Expect.equal ((prop "status" body).GetString()) "quoted" "quoted"
                           Expect.equal (resp.Headers.ETag.Tag) "\"2\"" "etag carries the version"
 
-                          let! resp, _ = send client HttpMethod.Post "/quotes/q-http/bind" None [ "If-Match", "\"1\"" ]
+                          let! resp, _ =
+                              send client HttpMethod.Post "/quotes/q-http/bind" None [ "If-Match", "\"1\"" ]
+
                           Expect.equal resp.StatusCode HttpStatusCode.PreconditionFailed "stale version"
 
-                          let! resp, body = send client HttpMethod.Post "/quotes/q-http/bind" None [ "If-Match", "\"2\"" ]
+                          let! resp, body =
+                              send client HttpMethod.Post "/quotes/q-http/bind" None [ "If-Match", "\"2\"" ]
+
                           Expect.equal resp.StatusCode HttpStatusCode.OK "bound"
-                          Expect.equal ((prop "policyNumber" body).GetString()) "HO3-2026-000001" "policy number"
+
+                          Expect.equal
+                              ((prop "policyNumber" body).GetString())
+                              "HO3-2026-000001"
+                              "policy number"
 
                           let! resp, _ = post client "/quotes/q-http/rate" None
                           Expect.equal resp.StatusCode HttpStatusCode.Conflict "bound quotes are final"
@@ -160,7 +209,9 @@ let tests =
                           let! _, events = get client "/quotes/q-http/events"
 
                           Expect.equal
-                              (events.Value.EnumerateArray() |> Seq.map (fun e -> e.GetProperty("type").GetString()) |> List.ofSeq)
+                              (events.Value.EnumerateArray()
+                               |> Seq.map (fun e -> e.GetProperty("type").GetString())
+                               |> List.ofSeq)
                               [ "created"; "rated"; "bound" ]
                               "event log"
                       })
@@ -175,17 +226,28 @@ let tests =
                           let! _, body = post client "/quotes/q-ref/rate" None
                           Expect.equal ((prop "status" body).GetString()) "referred" "referred"
 
-                          let! resp, _ = post client "/quotes/q-ref/referrals/UW-ROOF/approve" (Some """{ "note": "x" }""")
+                          let! resp, _ =
+                              post
+                                  client
+                                  "/quotes/q-ref/referrals/UW-ROOF/approve"
+                                  (Some """{ "note": "x" }""")
+
                           Expect.equal resp.StatusCode HttpStatusCode.BadRequest "underwriter required"
 
                           let! resp, body =
-                              post client "/quotes/q-ref/referrals/UW-ROOF/approve" (Some """{ "underwriter": "dana", "note": "inspected" }""")
+                              post
+                                  client
+                                  "/quotes/q-ref/referrals/UW-ROOF/approve"
+                                  (Some """{ "underwriter": "dana", "note": "inspected" }""")
 
                           Expect.equal resp.StatusCode HttpStatusCode.OK "approved"
                           Expect.equal ((prop "status" body).GetString()) "quoted" "quoted"
 
                           let! resp, body =
-                              post client "/quotes/q-ref/decline" (Some """{ "underwriter": "lee", "reason": "changed mind" }""")
+                              post
+                                  client
+                                  "/quotes/q-ref/decline"
+                                  (Some """{ "underwriter": "lee", "reason": "changed mind" }""")
 
                           Expect.equal resp.StatusCode HttpStatusCode.OK "declined"
                           Expect.equal ((prop "declinedBy" body).GetString()) "lee" "declined by"
@@ -201,7 +263,10 @@ let tests =
                       async {
                           let! _ = post client "/quotes" (Some(newQuote "q-amend" hoBody.Value))
                           let! _ = post client "/quotes/q-amend/rate" None
-                          let! resp, body = send client HttpMethod.Put "/quotes/q-amend/request" (Some hoBody.Value) []
+
+                          let! resp, body =
+                              send client HttpMethod.Put "/quotes/q-amend/request" (Some hoBody.Value) []
+
                           Expect.equal resp.StatusCode HttpStatusCode.OK "amended"
                           Expect.equal ((prop "status" body).GetString()) "draft" "back to draft"
                           Expect.equal ((prop "rating" body).ValueKind) JsonValueKind.Null "rating cleared"
@@ -216,7 +281,10 @@ let tests =
                           Expect.equal resp.StatusCode HttpStatusCode.NotFound "quote"
                           let! resp, _ = post client "/quotes/missing/rate" None
                           Expect.equal resp.StatusCode HttpStatusCode.NotFound "command on missing quote"
-                          let! resp, _ = post client "/quotes" (Some """{ "product": "ZZZ", "request": {} }""")
+
+                          let! resp, _ =
+                              post client "/quotes" (Some """{ "product": "ZZZ", "request": {} }""")
+
                           Expect.equal resp.StatusCode HttpStatusCode.BadRequest "invalid request body"
                           let! resp, _ = get client "/nowhere"
                           Expect.equal resp.StatusCode HttpStatusCode.NotFound "route"

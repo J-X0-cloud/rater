@@ -107,13 +107,15 @@ type LifecycleError =
         | QuoteAlreadyExists id -> $"quote '{id}' already exists"
         | QuoteNotFound id -> $"quote '{id}' does not exist"
         | InvalidTransition(c, s) -> $"cannot {c} a quote that is {s}"
-        | RatingFailed issues -> $"""the quote could not be rated: {issues |> List.map string |> String.joinWith "; "}"""
+        | RatingFailed issues ->
+            $"""the quote could not be rated: {issues |> List.map string |> String.joinWith "; "}"""
         | UnknownReferral r -> $"rule '{r}' has not referred this quote"
         | ReferralAlreadyApproved r -> $"the referral from rule '{r}' is already approved"
         | QuoteHasExpired d -> $"the quote expired at the end of {Dates.iso d}"
         | EffectiveDateInPast d -> $"cannot bind a policy effective {Dates.iso d}, which is in the past"
         | MissingField f -> $"{f} is required"
-        | VersionConflict(e, a) -> $"the quote changed since version {e} (it is now at version {a}); reload and retry"
+        | VersionConflict(e, a) ->
+            $"the quote changed since version {e} (it is now at version {a}); reload and retry"
 
 /// What a lifecycle decision may consult beyond the quote itself.
 type LifecycleDeps =
@@ -192,7 +194,8 @@ module Quote =
 
                 let reason =
                     match result.Decision with
-                    | Decision.Declined findings -> Some(findings |> List.map (fun f -> f.Message) |> String.joinWith "; ")
+                    | Decision.Declined findings ->
+                        Some(findings |> List.map (fun f -> f.Message) |> String.joinWith "; ")
                     | _ -> None
 
                 { q with
@@ -228,7 +231,11 @@ module Quote =
         | Some until -> DateOnly.FromDateTime now.UtcDateTime > until
         | None -> false
 
-    let decide (deps: LifecycleDeps) (state: Quote option) (command: QuoteCommand) : Result<QuoteEvent list, LifecycleError> =
+    let decide
+        (deps: LifecycleDeps)
+        (state: Quote option)
+        (command: QuoteCommand)
+        : Result<QuoteEvent list, LifecycleError> =
         let now = deps.Now()
         let today = DateOnly.FromDateTime now.UtcDateTime
 
@@ -238,9 +245,12 @@ module Quote =
         match state, command with
         | Some q, Create _ -> Error(QuoteAlreadyExists q.Id)
         | None, Create(id, product, request) ->
-            if String.isBlank id then Error(MissingField "quote id")
-            elif String.isBlank product then Error(MissingField "product")
-            else Ok [ Created(id, product, request, now) ]
+            if String.isBlank id then
+                Error(MissingField "quote id")
+            elif String.isBlank product then
+                Error(MissingField "product")
+            else
+                Ok [ Created(id, product, request, now) ]
         | None, _ -> Error(QuoteNotFound "")
         | Some q, _ when q.Status.IsTerminal -> invalid q
         | Some q, Expire ->
@@ -280,12 +290,16 @@ module Quote =
             match q.Status with
             | Referred
             | Quoted ->
-                if String.isBlank underwriter then Error(MissingField "underwriter")
-                elif String.isBlank reason then Error(MissingField "decline reason")
-                else Ok [ DeclinedByUnderwriter(underwriter, reason, now) ]
+                if String.isBlank underwriter then
+                    Error(MissingField "underwriter")
+                elif String.isBlank reason then
+                    Error(MissingField "decline reason")
+                else
+                    Ok [ DeclinedByUnderwriter(underwriter, reason, now) ]
             | _ -> invalid q
         | Some q, Bind ->
             match q.Status with
-            | Quoted when q.Request.EffectiveDate < today -> Error(EffectiveDateInPast q.Request.EffectiveDate)
+            | Quoted when q.Request.EffectiveDate < today ->
+                Error(EffectiveDateInPast q.Request.EffectiveDate)
             | Quoted -> Ok [ PolicyBound(deps.NextPolicyNumber q.Product, now) ]
             | _ -> invalid q

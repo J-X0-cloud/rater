@@ -14,9 +14,12 @@ let ageTable =
         [ { Name = "age"
             Kind = Banded
             Keys = [| band None (Some 5m); band (Some 5m) (Some 15m); band (Some 15m) None |] } ]
-        [ { Keys = [ band None (Some 5m) ]; Value = 0.9m }
-          { Keys = [ band (Some 5m) (Some 15m) ]; Value = 1m }
-          { Keys = [ band (Some 15m) None ]; Value = 1.2m } ]
+        [ { Keys = [ band None (Some 5m) ]
+            Value = 0.9m }
+          { Keys = [ band (Some 5m) (Some 15m) ]
+            Value = 1m }
+          { Keys = [ band (Some 15m) None ]
+            Value = 1.2m } ]
     |> expectOk
 
 let grid =
@@ -30,13 +33,18 @@ let grid =
           { Name = "y"
             Kind = Interpolated Reject
             Keys = [| Point 0m; Point 1m |] } ]
-        [ { Keys = [ Point 0m; Point 0m ]; Value = 0m }
-          { Keys = [ Point 0m; Point 1m ]; Value = 10m }
-          { Keys = [ Point 10m; Point 0m ]; Value = 10m }
-          { Keys = [ Point 10m; Point 1m ]; Value = 20m } ]
+        [ { Keys = [ Point 0m; Point 0m ]
+            Value = 0m }
+          { Keys = [ Point 0m; Point 1m ]
+            Value = 10m }
+          { Keys = [ Point 10m; Point 0m ]
+            Value = 10m }
+          { Keys = [ Point 10m; Point 1m ]
+            Value = 20m } ]
     |> expectOk
 
-let lookup t args = Table.lookup t args |> expectOk |> fun r -> r.Result
+let lookup t args =
+    Table.lookup t args |> expectOk |> (fun r -> r.Result)
 
 [<Tests>]
 let tests =
@@ -54,7 +62,9 @@ let tests =
                       [ { Name = "k"
                           Kind = Exact TText
                           Keys = [| Key(VText "a"); Wildcard |] } ]
-                      [ { Keys = [ Key(VText "a") ]; Value = 1m }; { Keys = [ Wildcard ]; Value = 2m } ]
+                      [ { Keys = [ Key(VText "a") ]
+                          Value = 1m }
+                        { Keys = [ Wildcard ]; Value = 2m } ]
                   |> expectOk
 
               Expect.equal (lookup t [ VText "a" ]) 1m "listed key wins"
@@ -89,8 +99,10 @@ let tests =
                       [ { Name = "x"
                           Kind = Banded
                           Keys = [| band (Some 0m) (Some 5m); band (Some 10m) (Some 20m) |] } ]
-                      [ { Keys = [ band (Some 0m) (Some 5m) ]; Value = 1m }
-                        { Keys = [ band (Some 10m) (Some 20m) ]; Value = 2m } ]
+                      [ { Keys = [ band (Some 0m) (Some 5m) ]
+                          Value = 1m }
+                        { Keys = [ band (Some 10m) (Some 20m) ]
+                          Value = 2m } ]
                   |> expectOk
 
               Expect.isError (Table.lookup t [ VNumber 7m ]) "7 is in the gap"
@@ -102,12 +114,26 @@ let tests =
                       "bad"
                       [ { Name = "x"
                           Kind = Banded
-                          Keys = [| band (Some 0m) (Some 10m); band (Some 5m) (Some 20m); band (Some 30m) (Some 25m) |] } ]
+                          Keys =
+                            [| band (Some 0m) (Some 10m)
+                               band (Some 5m) (Some 20m)
+                               band (Some 30m) (Some 25m) |] } ]
                       []
                   |> expectError
 
-              Expect.exists errs (function OverlappingBands(_, _, a, b) -> a <> b | _ -> false) "overlap"
-              Expect.exists errs (function OverlappingBands(_, _, a, b) -> a = b | _ -> false) "inverted"
+              Expect.exists
+                  errs
+                  (function
+                  | OverlappingBands(_, _, a, b) -> a <> b
+                  | _ -> false)
+                  "overlap"
+
+              Expect.exists
+                  errs
+                  (function
+                  | OverlappingBands(_, _, a, b) -> a = b
+                  | _ -> false)
+                  "inverted"
           }
 
           test "build reports missing and duplicate cells" {
@@ -120,12 +146,26 @@ let tests =
                       Keys = [| Key(VBool true); Key(VBool false) |] } ]
 
               let rows =
-                  [ { Keys = [ Key(VText "x"); Key(VBool true) ]; Value = 1m }
-                    { Keys = [ Key(VText "x"); Key(VBool true) ]; Value = 2m } ]
+                  [ { Keys = [ Key(VText "x"); Key(VBool true) ]
+                      Value = 1m }
+                    { Keys = [ Key(VText "x"); Key(VBool true) ]
+                      Value = 2m } ]
 
               let errs = Table.build "t" dims rows |> expectError
-              Expect.exists errs (function DuplicateCell _ -> true | _ -> false) "duplicate"
-              Expect.exists errs (function MissingCells(_, _, 3) -> true | _ -> false) "three missing"
+
+              Expect.exists
+                  errs
+                  (function
+                  | DuplicateCell _ -> true
+                  | _ -> false)
+                  "duplicate"
+
+              Expect.exists
+                  errs
+                  (function
+                  | MissingCells(_, _, 3) -> true
+                  | _ -> false)
+                  "three missing"
           }
 
           test "keys of the wrong type and duplicate dimension names are rejected" {
@@ -141,8 +181,19 @@ let tests =
                       []
                   |> expectError
 
-              Expect.exists errs (function KeyTypeMismatch _ -> true | _ -> false) "type"
-              Expect.exists errs (function DuplicateDimension _ -> true | _ -> false) "dimension"
+              Expect.exists
+                  errs
+                  (function
+                  | KeyTypeMismatch _ -> true
+                  | _ -> false)
+                  "type"
+
+              Expect.exists
+                  errs
+                  (function
+                  | DuplicateDimension _ -> true
+                  | _ -> false)
+                  "dimension"
           }
 
           test "breakpoints must increase" {
@@ -155,7 +206,12 @@ let tests =
                       []
                   |> expectError
 
-              Expect.exists errs (function UnsortedBreakpoints _ -> true | _ -> false) "unsorted"
+              Expect.exists
+                  errs
+                  (function
+                  | UnsortedBreakpoints _ -> true
+                  | _ -> false)
+                  "unsorted"
           }
 
           test "linear interpolation between breakpoints" {
@@ -209,9 +265,13 @@ let tests =
                   match edges with
                   | [] -> [ { Lower = None; Upper = None } ]
                   | _ ->
-                      ({ Lower = None; Upper = Some edges.Head }
-                       :: (edges |> List.pairwise |> List.map (fun (a, b) -> { Lower = Some a; Upper = Some b })))
-                      @ [ { Lower = Some(List.last edges); Upper = None } ]
+                      ({ Lower = None
+                         Upper = Some edges.Head }
+                       :: (edges
+                           |> List.pairwise
+                           |> List.map (fun (a, b) -> { Lower = Some a; Upper = Some b })))
+                      @ [ { Lower = Some(List.last edges)
+                            Upper = None } ]
 
               let t =
                   Table.build
@@ -219,7 +279,10 @@ let tests =
                       [ { Name = "x"
                           Kind = Banded
                           Keys = bands |> List.map BandKey |> Array.ofList } ]
-                      (bands |> List.mapi (fun i b -> { Keys = [ BandKey b ]; Value = decimal i }))
+                      (bands
+                       |> List.mapi (fun i b ->
+                           { Keys = [ BandKey b ]
+                             Value = decimal i }))
                   |> expectOk
 
               let x = decimal probe

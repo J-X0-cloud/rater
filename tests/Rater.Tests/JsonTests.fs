@@ -5,7 +5,10 @@ open Rater
 open Rater.Json
 open Rater.Tests.Support
 
-type Point = { X: decimal; Y: decimal; Label: string option }
+type Point =
+    { X: decimal
+      Y: decimal
+      Label: string option }
 
 let point: Decoder<Point> =
     Decode.strictObject
@@ -17,8 +20,7 @@ let point: Decoder<Point> =
             return { X = x; Y = y; Label = label }
         })
 
-let messages r =
-    expectError r |> List.map string
+let messages r = expectError r |> List.map string
 
 let minimalProduct (extra: string) =
     $$"""
@@ -36,13 +38,18 @@ let tests =
     testList
         "json"
         [ test "applicative decoding accumulates every error with its path" {
-              let errs = Decode.fromString (Decode.list point) """[ { "x": 1, "y": 2 }, { "x": "a" } ]""" |> messages
+              let errs =
+                  Decode.fromString (Decode.list point) """[ { "x": 1, "y": 2 }, { "x": "a" } ]"""
+                  |> messages
+
               Expect.contains errs "[1].x: expected a number but found a string" "type error"
               Expect.contains errs "[1]: missing required field 'y'" "missing field"
           }
 
           test "strict objects reject unknown fields with suggestions" {
-              let errs = Decode.fromString point """{ "x": 1, "y": 2, "lable": "p" }""" |> messages
+              let errs =
+                  Decode.fromString point """{ "x": 1, "y": 2, "lable": "p" }""" |> messages
+
               Expect.contains errs "lable: unknown field 'lable'; did you mean 'label'?" "suggestion"
           }
 
@@ -64,13 +71,28 @@ let tests =
                         "b", Encode.list [ Encode.bool true; Encode.nil ]
                         "c", Encode.date (date "2026-02-03") ]
 
-              Expect.equal (Encode.toCompactString node) """{"a":1.5,"b":[true,null],"c":"2026-02-03"}""" "compact"
+              Expect.equal
+                  (Encode.toCompactString node)
+                  """{"a":1.5,"b":[true,null],"c":"2026-02-03"}"""
+                  "compact"
           }
 
           test "band keys parse in all three forms" {
-              Expect.equal (ProductCodec.parseBand "1..5" |> expectOk) { Lower = Some 1m; Upper = Some 5m } "closed"
-              Expect.equal (ProductCodec.parseBand "5.." |> expectOk) { Lower = Some 5m; Upper = None } "open upper"
-              Expect.equal (ProductCodec.parseBand "..0.5" |> expectOk) { Lower = None; Upper = Some 0.5m } "open lower"
+              Expect.equal
+                  (ProductCodec.parseBand "1..5" |> expectOk)
+                  { Lower = Some 1m; Upper = Some 5m }
+                  "closed"
+
+              Expect.equal
+                  (ProductCodec.parseBand "5.." |> expectOk)
+                  { Lower = Some 5m; Upper = None }
+                  "open upper"
+
+              Expect.equal
+                  (ProductCodec.parseBand "..0.5" |> expectOk)
+                  { Lower = None; Upper = Some 0.5m }
+                  "open lower"
+
               Expect.isError (ProductCodec.parseBand "1-5") "wrong separator"
           }
 
@@ -105,7 +127,11 @@ let tests =
                       .Replace("premium := #rate[risk.size] * 100", "premium := (1 + ")
 
               let errs = ProductCodec.load json |> expectError
-              Expect.exists errs (fun e -> e.StartsWith "coverages[0].algorithm: syntax error at 1:17") "located"
+
+              Expect.exists
+                  errs
+                  (fun e -> e.StartsWith "coverages[0].algorithm: syntax error at 1:17")
+                  "located"
           }
 
           test "missing table cells are reported per version" {
@@ -115,7 +141,11 @@ let tests =
                            "versions": [ { "effective": "2025-01-01", "rows": [ ["x", "p", 1], ["y", "q", 2] ] } ] }"""
 
               let errs = ProductCodec.load json |> expectError
-              Expect.exists errs (fun e -> e.Contains "version 2025-01-01" && e.Contains "missing 2 cell(s)") "missing cells"
+
+              Expect.exists
+                  errs
+                  (fun e -> e.Contains "version 2025-01-01" && e.Contains "missing 2 cell(s)")
+                  "missing cells"
           }
 
           test "rating requests decode raw values" {

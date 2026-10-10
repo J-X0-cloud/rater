@@ -60,16 +60,18 @@ type RatingIssue =
         | EvaluationFailed(c, e) -> $"coverage '{c}': {e}"
 
 type CoveragePremium =
-    { Code: string
-      Name: string
-      Limit: decimal
-      Deductible: decimal
-      Worksheet: Worksheet
-      /// Annual premium after the coverage minimum and rounding.
-      AnnualPremium: decimal
-      MinimumApplied: bool
-      /// Premium for the actual term, including any share of the policy minimum uplift.
-      WrittenPremium: decimal }
+    {
+        Code: string
+        Name: string
+        Limit: decimal
+        Deductible: decimal
+        Worksheet: Worksheet
+        /// Annual premium after the coverage minimum and rounding.
+        AnnualPremium: decimal
+        MinimumApplied: bool
+        /// Premium for the actual term, including any share of the policy minimum uplift.
+        WrittenPremium: decimal
+    }
 
 type Charge =
     { Code: string
@@ -134,11 +136,13 @@ module Rating =
           match v with
           | VNumber n ->
               match a.Min with
-              | Some lo when n < lo -> yield $"{Decimal.toInvariantString n} is below the minimum {Decimal.toInvariantString lo}"
+              | Some lo when n < lo ->
+                  yield $"{Decimal.toInvariantString n} is below the minimum {Decimal.toInvariantString lo}"
               | _ -> ()
 
               match a.Max with
-              | Some hi when n > hi -> yield $"{Decimal.toInvariantString n} is above the maximum {Decimal.toInvariantString hi}"
+              | Some hi when n > hi ->
+                  yield $"{Decimal.toInvariantString n} is above the maximum {Decimal.toInvariantString hi}"
               | _ -> ()
 
               if a.Integer && n <> Math.Truncate n then
@@ -146,7 +150,10 @@ module Rating =
           | _ -> () ]
 
     /// Checks raw risk input against the product's attribute schema and fills in defaults.
-    let validateRisk (p: Product) (risk: Map<string, RawValue>) : Result<Map<string, Value>, RatingIssue list> =
+    let validateRisk
+        (p: Product)
+        (risk: Map<string, RawValue>)
+        : Result<Map<string, Value>, RatingIssue list> =
         let known = p.Attributes |> List.map (fun a -> a.Name) |> Set.ofList
 
         let unknown =
@@ -242,25 +249,37 @@ module Rating =
                         | None, [] -> Ok 0m
                         | None, _ -> Error [ InvalidDeductible(c.Code, "a deductible must be chosen") ]
                         | Some d, [] when d = 0m -> Ok 0m
-                        | Some _, [] -> Error [ InvalidDeductible(c.Code, "this coverage has no deductible") ]
+                        | Some _, [] ->
+                            Error [ InvalidDeductible(c.Code, "this coverage has no deductible") ]
                         | Some d, options when List.contains d options -> Ok d
                         | Some d, options ->
                             let shown = options |> List.map Decimal.toInvariantString |> String.joinWith ", "
-                            Error [ InvalidDeductible(c.Code, $"{Decimal.toInvariantString d} is not one of {shown}") ]
+
+                            Error
+                                [ InvalidDeductible(
+                                      c.Code,
+                                      $"{Decimal.toInvariantString d} is not one of {shown}"
+                                  ) ]
 
                     Result.zip limit deductible |> Result.map (fun (l, d) -> Some(c, l, d)))
 
         match resolved, structural with
         | Ok items, [] ->
             // Rate in dependency order, not in the order the request listed them.
-            let byCode = items |> List.choose id |> List.map (fun (c, l, d) -> c.Code, (c, l, d)) |> Map.ofList
+            let byCode =
+                items
+                |> List.choose id
+                |> List.map (fun (c, l, d) -> c.Code, (c, l, d))
+                |> Map.ofList
+
             Ok(plan.Order |> List.choose (fun c -> byCode.TryFind c.Code))
         | Ok _, s -> Error s
         | Error e, s -> Error(s @ e)
 
     let private checkTerm (p: Product) (req: RatingRequest) =
         let expiration =
-            req.ExpirationDate |> Option.defaultWith (fun () -> req.EffectiveDate.AddYears 1)
+            req.ExpirationDate
+            |> Option.defaultWith (fun () -> req.EffectiveDate.AddYears 1)
 
         let days = Dates.daysBetween req.EffectiveDate expiration
 
@@ -302,7 +321,9 @@ module Rating =
         | Ok _, (_ :: _ as t) -> Error t
         | Ok(tableVersions, (risk, coverages)), [] ->
             let tableMap = tableVersions |> Map.ofList
-            let tables name = tableMap.TryFind name |> Option.map (fun v -> v.Table)
+
+            let tables name =
+                tableMap.TryFind name |> Option.map (fun v -> v.Table)
 
             let policy =
                 { EffectiveDate = req.EffectiveDate
@@ -356,9 +377,17 @@ module Rating =
                         rated
                     else
                         let shares =
-                            Money.allocate (max 0 rules.Places) uplift (rated |> List.map (fun c -> c.WrittenPremium))
+                            Money.allocate
+                                (max 0 rules.Places)
+                                uplift
+                                (rated |> List.map (fun c -> c.WrittenPremium))
 
-                        List.map2 (fun c share -> { c with WrittenPremium = c.WrittenPremium + share }) rated shares
+                        List.map2
+                            (fun c share ->
+                                { c with
+                                    WrittenPremium = c.WrittenPremium + share })
+                            rated
+                            shares
 
                 let premium = rated |> List.sumBy (fun c -> c.WrittenPremium)
 

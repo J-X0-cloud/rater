@@ -57,7 +57,8 @@ module Builtins =
     let private rounding name mode =
         { Name = name
           Signature = Overloads [ [ TNumber ], TNumber; [ TNumber; TNumber ], TNumber ]
-          Doc = $"{name}(x[, places]) rounds x ({RoundingMode.name mode}) to the given number of places (default 0)"
+          Doc =
+            $"{name}(x[, places]) rounds x ({RoundingMode.name mode}) to the given number of places (default 0)"
           Invoke =
             function
             | [ x ] -> VNumber(Decimal.round mode 0 (num name x))
@@ -140,21 +141,29 @@ module Builtins =
             Doc = "years_between(from, to) counts whole years, a year completing on its anniversary"
             Invoke =
               fun args ->
-                  VNumber(decimal (Dates.yearsBetween (date "years_between" args[0]) (date "years_between" args[1]))) }
+                  VNumber(
+                      decimal (
+                          Dates.yearsBetween (date "years_between" args[0]) (date "years_between" args[1])
+                      )
+                  ) }
           { Name = "months_between"
             Signature = Overloads [ [ TDate; TDate ], TNumber ]
             Doc = "months_between(from, to) counts whole months"
             Invoke =
               fun args ->
                   VNumber(
-                      decimal (Dates.monthsBetween (date "months_between" args[0]) (date "months_between" args[1]))
+                      decimal (
+                          Dates.monthsBetween (date "months_between" args[0]) (date "months_between" args[1])
+                      )
                   ) }
           { Name = "days_between"
             Signature = Overloads [ [ TDate; TDate ], TNumber ]
             Doc = "days_between(from, to) is the signed number of days from one date to the other"
             Invoke =
               fun args ->
-                  VNumber(decimal (Dates.daysBetween (date "days_between" args[0]) (date "days_between" args[1]))) }
+                  VNumber(
+                      decimal (Dates.daysBetween (date "days_between" args[0]) (date "days_between" args[1]))
+                  ) }
           { Name = "year"
             Signature = Overloads [ [ TDate ], TNumber ]
             Doc = "year(d) is the calendar year of d"
@@ -188,7 +197,10 @@ module Builtins =
             Doc = "starts_with(s, prefix) tests whether s begins with prefix"
             Invoke =
               fun args ->
-                  VBool((text "starts_with" args[0]).StartsWith(text "starts_with" args[1], StringComparison.Ordinal)) }
+                  VBool(
+                      (text "starts_with" args[0])
+                          .StartsWith(text "starts_with" args[1], StringComparison.Ordinal)
+                  ) }
           { Name = "length"
             Signature = Overloads [ [ TText ], TNumber ]
             Doc = "length(s) is the number of characters in s"
@@ -218,6 +230,8 @@ module Builtins =
             | Some(_, ret) -> Ok ret
             | None ->
                 let expected =
-                    overloads |> List.map (fun (ps, _) -> $"{b.Name}({shown ps})") |> String.joinWith " or "
+                    overloads
+                    |> List.map (fun (ps, _) -> $"{b.Name}({shown ps})")
+                    |> String.joinWith " or "
 
                 Error $"{b.Name}({shown argTypes}) does not match {expected}"
