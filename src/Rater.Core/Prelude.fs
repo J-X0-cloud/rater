@@ -111,7 +111,8 @@ module String =
 
     let joinWith (sep: string) (items: string seq) = String.Join(sep, items)
 
-    /// Levenshtein distance, used to suggest close matches for misspelt identifiers.
+    /// Optimal string alignment distance: Levenshtein plus adjacent transpositions, so the
+    /// common typo "lable" is one edit from "label". Used to suggest misspelt identifiers.
     let editDistance (a: string) (b: string) =
         let d = Array2D.zeroCreate (a.Length + 1) (b.Length + 1)
 
@@ -124,7 +125,13 @@ module String =
         for i in 1 .. a.Length do
             for j in 1 .. b.Length do
                 let cost = if a[i - 1] = b[j - 1] then 0 else 1
-                d[i, j] <- min (min (d[i - 1, j] + 1) (d[i, j - 1] + 1)) (d[i - 1, j - 1] + cost)
+                let best = min (min (d[i - 1, j] + 1) (d[i, j - 1] + 1)) (d[i - 1, j - 1] + cost)
+
+                d[i, j] <-
+                    if i > 1 && j > 1 && a[i - 1] = b[j - 2] && a[i - 2] = b[j - 1] then
+                        min best (d[i - 2, j - 2] + 1)
+                    else
+                        best
 
         d[a.Length, b.Length]
 

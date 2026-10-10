@@ -9,6 +9,7 @@ type Finding =
       Message: string }
 
 /// The underwriting outcome for a quote. Any decline wins over any referral.
+[<RequireQualifiedAccess>]
 type Decision =
     | Accept
     | Referred of Finding list
@@ -16,9 +17,9 @@ type Decision =
 
     member d.Name =
         match d with
-        | Accept -> "accept"
-        | Referred _ -> "refer"
-        | Declined _ -> "decline"
+        | Decision.Accept -> "accept"
+        | Decision.Referred _ -> "refer"
+        | Decision.Declined _ -> "decline"
 
 [<RequireQualifiedAccess>]
 module Underwriting =
@@ -49,6 +50,6 @@ module Underwriting =
         let declines = findings |> List.filter (fun f -> f.Action = Decline)
         let referrals = findings |> List.filter (fun f -> f.Action = Refer)
 
-        if not declines.IsEmpty then Declined declines
-        elif not referrals.IsEmpty then Referred referrals
-        else Accept
+        if not declines.IsEmpty then Decision.Declined declines
+        elif not referrals.IsEmpty then Decision.Referred referrals
+        else Decision.Accept
