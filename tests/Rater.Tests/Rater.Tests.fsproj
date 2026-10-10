@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+    <GenerateProgramFile>false</GenerateProgramFile>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="Support.fs" />
+    <Compile Include="Generators.fs" />
+    <Compile Include="MoneyTests.fs" />
+    <Compile Include="ValueTests.fs" />
+    <Compile Include="TableTests.fs" />
+    <Compile Include="ParserTests.fs" />
+    <Compile Include="TypeCheckTests.fs" />
+    <Compile Include="InterpreterTests.fs" />
+    <Compile Include="RateBookTests.fs" />
+    <Compile Include="ProductTests.fs" />
+    <Compile Include="JsonTests.fs" />
+    <Compile Include="RatingTests.fs" />
+    <Compile Include="QuoteTests.fs" />
+    <Compile Include="ApiTests.fs" />
+    <Compile Include="Main.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Expecto" Version="10.2.1" />
+    <PackageReference Include="Expecto.FsCheck" Version="10.2.1" />
+    <PackageReference Include="Microsoft.AspNetCore.TestHost" Version="8.0.11" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
+    <PackageReference Include="YoloDev.Expecto.TestSdk" Version="0.14.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Rater.Core\Rater.Core.fsproj" />
+    <ProjectReference Include="..\..\src\Rater.Api\Rater.Api.fsproj" />
+  </ItemGroup>
+
+</Project>
